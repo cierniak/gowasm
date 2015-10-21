@@ -90,7 +90,7 @@ type WasmType struct {
 // ( get_local <var> )
 type WasmGetLocal struct {
 	astIdent *ast.Ident
-	name     string
+	def      WasmVariable
 	f        *WasmFunc
 	t        *WasmType
 }
@@ -133,7 +133,7 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 func (m *WasmModule) print(writer FormattingWriter) {
 	writer.Printf("(module\n")
 	bodyIndent := m.indent + 1
-	writer.PrintfIndent(bodyIndent, ";; Go package '%s' %s\n", m.name, writer.SprintPosition(m.namePos, m.fset))
+	writer.PrintfIndent(bodyIndent, ";; Go package '%s' %s\n", m.name, positionString(m.namePos, m.fset))
 	for _, f := range m.functions {
 		writer.Printf("\n")
 		f.print(writer)
@@ -161,6 +161,10 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 	return f, nil
 }
 
+func astNameToWASM(astName string) string {
+	return "$" + astName
+}
+
 func (f *WasmFunc) parseType(t *ast.FuncType) {
 	if t.Params.List != nil {
 		for _, field := range t.Params.List {
@@ -172,7 +176,7 @@ func (f *WasmFunc) parseType(t *ast.FuncType) {
 				p := &WasmParam{
 					astIdent: name,
 					astType:  field.Type,
-					name:     name.Name,
+					name:     astNameToWASM(name.Name),
 					t:        paramType,
 				}
 				f.module.variables[name.Obj] = p
@@ -244,9 +248,13 @@ func (f *WasmFunc) parseExpr(expr ast.Expr) (WasmExpression, error) {
 }
 
 func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
+	v, ok := f.module.variables[ident.Obj]
+	if !ok {
+		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, f.fset))
+	}
 	g := &WasmGetLocal{
 		astIdent: ident,
-		name:     ident.Name,
+		def:      v,
 		f:        f,
 	}
 	return g, nil
@@ -255,11 +263,11 @@ func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
 func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr) (WasmExpression, error) {
 	x, err := f.parseExpr(expr.X)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't get operand X in a binary expression", err)
+		return nil, fmt.Errorf("couldn't get operand X in a binary expression: %v", err)
 	}
 	y, err := f.parseExpr(expr.Y)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't get operand Y in a binary expression", err)
+		return nil, fmt.Errorf("couldn't get operand Y in a binary expression: %v", err)
 	}
 	xt := x.getType()
 	b := &WasmBinOp{
@@ -273,7 +281,7 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr) (WasmExpression, error)
 }
 
 func (f *WasmFunc) print(writer FormattingWriter) {
-	writer.PrintfIndent(f.indent, ";; Go function '%s' %s\n", f.name, writer.SprintPosition(f.namePos, f.fset))
+	writer.PrintfIndent(f.indent, ";; Go function '%s' %s\n", f.name, positionString(f.namePos, f.fset))
 	writer.PrintfIndent(f.indent, "(func")
 	for _, param := range f.params {
 		param.print(writer)
@@ -329,7 +337,7 @@ func (b *WasmBinOp) print(writer FormattingWriter) {
 }
 
 func (g *WasmGetLocal) print(writer FormattingWriter) {
-	writer.Printf("(get_local %s)", g.name)
+	writer.Printf("(get_local %s)", g.def.getName())
 }
 
 func (g *WasmGetLocal) getType() *WasmType {
@@ -386,4 +394,9 @@ func (r *WasmReturn) print(writer FormattingWriter) {
 		r.value.print(writer)
 	}
 	writer.Printf(")")
+}
+
+func positionString(pos token.Pos, fset *token.FileSet) string {
+	position := fset.File(pos).PositionFor(pos, false)
+	return fmt.Sprintf("[%s:%d:%d]", position.Filename, position.Line, position.Offset)
 }

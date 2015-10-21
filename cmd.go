@@ -25,7 +25,6 @@ func initFlags() {
 type FormattingWriter interface {
 	Printf(format string, a ...interface{}) (n int, err error)
 	PrintfIndent(indent int, format string, a ...interface{}) (n int, err error)
-	SprintPosition(pos token.Pos, fset *token.FileSet) string
 }
 
 type FormattingWriterImpl struct {
@@ -41,11 +40,6 @@ func (w *FormattingWriterImpl) PrintfIndent(indent int, format string, a ...inte
 	indentString := strings.Repeat("  ", indent)
 	s := fmt.Sprintf(format, a...)
 	return (&w.b).Write([]byte(indentString + s))
-}
-
-func (w *FormattingWriterImpl) SprintPosition(pos token.Pos, fset *token.FileSet) string {
-	position := fset.File(pos).PositionFor(pos, false)
-	return fmt.Sprintf("[%s:%d:%d]", position.Filename, position.Line, position.Offset)
 }
 
 func (w *FormattingWriterImpl) WriteToFile(name string) (int, error) {
