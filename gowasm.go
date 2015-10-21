@@ -333,8 +333,6 @@ func (g *WasmGetLocal) print(writer FormattingWriter) {
 }
 
 func (g *WasmGetLocal) getType() *WasmType {
-	v := g.f.module.variables[g.astIdent.Obj]
-	fmt.Printf("WasmGetLocal.getType, v: %v\n", v)
 	return g.f.module.variables[g.astIdent.Obj].getType()
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -9,6 +10,17 @@ import (
 	"os"
 	"strings"
 )
+
+var dumpAST bool
+var verbose bool
+var outFile string
+
+func initFlags() {
+	flag.BoolVar(&dumpAST, "d", false, "print the Go AST to stdout")
+	flag.BoolVar(&verbose, "v", false, "print out extra information")
+	flag.StringVar(&outFile, "o", "out.wast", "output file")
+	flag.Parse()
+}
 
 type FormattingWriter interface {
 	Printf(format string, a ...interface{}) (n int, err error)
@@ -53,7 +65,9 @@ func Compile(fileName string, writer FormattingWriter) {
 		panic(err)
 	}
 
-	ast.Print(fset, f)
+	if dumpAST {
+		ast.Print(fset, f)
+	}
 
 	m, err := parseAstFile(f, fset)
 	if err != nil {
@@ -63,18 +77,19 @@ func Compile(fileName string, writer FormattingWriter) {
 }
 
 func main() {
-	fmt.Printf("Go WASM, arg=%v\n", os.Args)
+	initFlags()
 	w := &FormattingWriterImpl{}
-	for i, f := range os.Args[1:] {
-		fmt.Printf("Compiling file #%d: '%s'\n", i, f)
+	for _, f := range flag.Args() {
 		Compile(f, w)
 	}
-	fmt.Printf("WASM output:\n%s\nEOF\n", w.b.String())
 
-	fileName := "out.wast"
-	_, err := w.WriteToFile(fileName)
+	if verbose {
+		fmt.Printf("--- begin WASM output\n%s\n--- end WASM output\n", w.b.String())
+	}
+
+	_, err := w.WriteToFile(outFile)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Output written to '%s'\n", fileName)
+	fmt.Printf("Output written to '%s'\n", outFile)
 }
