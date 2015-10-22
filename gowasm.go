@@ -209,6 +209,8 @@ func (f *WasmFunc) parseBody(body *ast.BlockStmt) {
 		switch stmt := stmt.(type) {
 		default:
 			panic(fmt.Errorf("unimplemented statement: %v", stmt))
+		case *ast.ExprStmt:
+			expr, err = f.parseExprStmt(stmt)
 		case *ast.ReturnStmt:
 			expr, err = f.parseReturnStmt(stmt)
 		}
@@ -219,6 +221,14 @@ func (f *WasmFunc) parseBody(body *ast.BlockStmt) {
 			f.expressions = append(f.expressions, expr)
 		}
 	}
+}
+
+func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt) (WasmExpression, error) {
+	expr, err := f.parseExpr(stmt.X)
+	if err != nil {
+		return nil, fmt.Errorf("unimplemented ExprStmt: %v", err)
+	}
+	return expr, nil
 }
 
 func (f *WasmFunc) parseReturnStmt(stmt *ast.ReturnStmt) (WasmExpression, error) {
@@ -239,25 +249,14 @@ func (f *WasmFunc) parseReturnStmt(stmt *ast.ReturnStmt) (WasmExpression, error)
 func (f *WasmFunc) parseExpr(expr ast.Expr) (WasmExpression, error) {
 	switch expr := expr.(type) {
 	default:
-		panic(fmt.Errorf("unimplemented expression: %v", expr))
-	case *ast.Ident:
-		return f.parseIdent(expr)
+		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), f.fset))
 	case *ast.BinaryExpr:
 		return f.parseBinaryExpr(expr)
+	case *ast.CallExpr:
+		return f.parseCallExpr(expr)
+	case *ast.Ident:
+		return f.parseIdent(expr)
 	}
-}
-
-func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
-	v, ok := f.module.variables[ident.Obj]
-	if !ok {
-		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, f.fset))
-	}
-	g := &WasmGetLocal{
-		astIdent: ident,
-		def:      v,
-		f:        f,
-	}
-	return g, nil
 }
 
 func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr) (WasmExpression, error) {
@@ -278,6 +277,40 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr) (WasmExpression, error)
 		y:   y,
 	}
 	return b, nil
+}
+
+func isWASMRuntimePackage(expr ast.Expr) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == "wasm"
+}
+
+func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr) (WasmExpression, error) {
+	return nil, fmt.Errorf("WASM runtime calls are not implemented: '%s' at %s", ident.Name, positionString(ident.Pos(), f.fset))
+}
+
+func (f *WasmFunc) parseCallExpr(call *ast.CallExpr) (WasmExpression, error) {
+	switch fun := call.Fun.(type) {
+	default:
+		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, f.fset))
+	case *ast.SelectorExpr:
+		if isWASMRuntimePackage(fun.X) {
+			return f.parseWASMRuntimeCall(fun.Sel, call)
+		}
+	}
+	return nil, fmt.Errorf("call expressions are not implemented at %s", positionString(call.Lparen, f.fset))
+}
+
+func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
+	v, ok := f.module.variables[ident.Obj]
+	if !ok {
+		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, f.fset))
+	}
+	g := &WasmGetLocal{
+		astIdent: ident,
+		def:      v,
+		f:        f,
+	}
+	return g, nil
 }
 
 func (f *WasmFunc) print(writer FormattingWriter) {
