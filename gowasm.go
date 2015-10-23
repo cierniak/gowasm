@@ -44,6 +44,7 @@ type WasmModule struct {
 	functions []*WasmFunc
 	types     map[string]*WasmType
 	variables map[*ast.Object]WasmVariable
+	imports   map[string]*WasmImport
 }
 
 // func:   ( func <name>? <type>? <param>* <result>? <local>* <expr>* )
@@ -112,6 +113,7 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 		functions: make([]*WasmFunc, 0, 10),
 		types:     make(map[string]*WasmType),
 		variables: make(map[*ast.Object]WasmVariable),
+		imports:   make(map[string]*WasmImport),
 	}
 	if ident := f.Name; ident != nil {
 		m.name = ident.Name
@@ -130,10 +132,17 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 	return m, nil
 }
 
+func (m *WasmModule) printImports(writer FormattingWriter, indent int) {
+	for _, i := range m.imports {
+		i.print(writer)
+	}
+}
+
 func (m *WasmModule) print(writer FormattingWriter) {
 	writer.Printf("(module\n")
 	bodyIndent := m.indent + 1
 	writer.PrintfIndent(bodyIndent, ";; Go package '%s' %s\n", m.name, positionString(m.namePos, m.fset))
+	m.printImports(writer, bodyIndent)
 	for _, f := range m.functions {
 		writer.Printf("\n")
 		f.print(writer)
@@ -279,13 +288,16 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr) (WasmExpression, error)
 	return b, nil
 }
 
-func isWASMRuntimePackage(expr ast.Expr) bool {
-	ident, ok := expr.(*ast.Ident)
-	return ok && ident.Name == "wasm"
-}
-
-func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr) (WasmExpression, error) {
-	return nil, fmt.Errorf("WASM runtime calls are not implemented: '%s' at %s", ident.Name, positionString(ident.Pos(), f.fset))
+func (f *WasmFunc) parseArgs(args []ast.Expr) []WasmExpression {
+	result := make([]WasmExpression, 0, len(args))
+	for _, arg := range args {
+		e, err := f.parseExpr(arg)
+		if err != nil {
+			panic(err)
+		}
+		result = append(result, e)
+	}
+	return result
 }
 
 func (f *WasmFunc) parseCallExpr(call *ast.CallExpr) (WasmExpression, error) {
