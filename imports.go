@@ -1,7 +1,5 @@
 package main
 
-// See https://github.com/WebAssembly/spec/tree/master/ml-proto
-
 import (
 	"fmt"
 	"go/ast"
