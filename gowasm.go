@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"unicode"
+	"unicode/utf8"
 )
 
 type WasmVariable interface {
@@ -54,9 +56,22 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 	return m, nil
 }
 
-func (m *WasmModule) printImports(writer FormattingWriter, indent int) {
+func (m *WasmModule) printImports(writer FormattingWriter) {
 	for _, i := range m.imports {
 		i.print(writer)
+	}
+}
+
+func isSymbolPublic(name string) bool {
+	ch, _ := utf8.DecodeRuneInString(name)
+	return unicode.IsUpper(ch)
+}
+
+func (m *WasmModule) printExports(writer FormattingWriter, indent int) {
+	for _, f := range m.functions {
+		if isSymbolPublic(f.origName) {
+			writer.PrintfIndent(indent, "(export \"%s\" %s)\n", f.origName, f.name)
+		}
 	}
 }
 
@@ -64,11 +79,13 @@ func (m *WasmModule) print(writer FormattingWriter) {
 	writer.Printf("(module\n")
 	bodyIndent := m.indent + 1
 	writer.PrintfIndent(bodyIndent, ";; Go package '%s' %s\n", m.name, positionString(m.namePos, m.fset))
-	m.printImports(writer, bodyIndent)
+	m.printImports(writer)
 	for _, f := range m.functions {
 		writer.Printf("\n")
 		f.print(writer)
 	}
+	writer.Printf("\n")
+	m.printExports(writer, bodyIndent)
 	writer.Printf(") ;; end Go package '%s'\n", m.name)
 }
 
