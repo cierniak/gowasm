@@ -13,6 +13,7 @@ type WasmFunc struct {
 	module      *WasmModule
 	indent      int
 	name        string
+	origName    string
 	namePos     token.Pos
 	params      []*WasmParam
 	result      *WasmResult
@@ -45,7 +46,8 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 		expressions: make([]WasmExpression, 0, 10),
 	}
 	if ident := funcDecl.Name; ident != nil {
-		f.name = ident.Name
+		f.name = astNameToWASM(ident.Name)
+		f.origName = ident.Name
 		f.namePos = ident.NamePos
 	}
 	if funcDecl.Type != nil {
@@ -93,8 +95,8 @@ func (f *WasmFunc) parseType(t *ast.FuncType) {
 }
 
 func (f *WasmFunc) print(writer FormattingWriter) {
-	writer.PrintfIndent(f.indent, ";; Go function '%s' %s\n", f.name, positionString(f.namePos, f.fset))
-	writer.PrintfIndent(f.indent, "(func")
+	writer.PrintfIndent(f.indent, ";; Go function '%s' %s\n", f.origName, positionString(f.namePos, f.fset))
+	writer.PrintfIndent(f.indent, "(func %s", f.name)
 	for _, param := range f.params {
 		param.print(writer)
 	}
