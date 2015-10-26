@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -18,26 +19,28 @@ type WasmVariable interface {
 
 // module:  ( module <type>* <func>* <global>* <import>* <export>* <table>* <memory>? )
 type WasmModule struct {
-	f         *ast.File
-	fset      *token.FileSet
-	indent    int
-	name      string
-	namePos   token.Pos
-	functions []*WasmFunc
-	types     map[string]*WasmType
-	variables map[*ast.Object]WasmVariable
-	imports   map[string]*WasmImport
+	f            *ast.File
+	fset         *token.FileSet
+	indent       int
+	name         string
+	namePos      token.Pos
+	functions    []*WasmFunc
+	types        map[string]*WasmType
+	variables    map[*ast.Object]WasmVariable
+	imports      map[string]*WasmImport
+	assertReturn []string
 }
 
 func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 	m := &WasmModule{
-		f:         f,
-		fset:      fset,
-		indent:    0,
-		functions: make([]*WasmFunc, 0, 10),
-		types:     make(map[string]*WasmType),
-		variables: make(map[*ast.Object]WasmVariable),
-		imports:   make(map[string]*WasmImport),
+		f:            f,
+		fset:         fset,
+		indent:       0,
+		functions:    make([]*WasmFunc, 0, 10),
+		types:        make(map[string]*WasmType),
+		variables:    make(map[*ast.Object]WasmVariable),
+		imports:      make(map[string]*WasmImport),
+		assertReturn: make([]string, 0, 10),
 	}
 	if ident := f.Name; ident != nil {
 		m.name = ident.Name
@@ -54,6 +57,20 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 		}
 	}
 	return m, nil
+}
+
+func (m *WasmModule) parseComment(c string) {
+	pragmaPrefix := "//wasm:"
+	if strings.HasPrefix(c, pragmaPrefix) {
+		m.parsePragma(strings.TrimPrefix(c, pragmaPrefix))
+	}
+}
+
+func (m *WasmModule) parsePragma(p string) {
+	assertReturnPrefix := "assert_return "
+	if strings.HasPrefix(p, assertReturnPrefix) {
+		m.assertReturn = append(m.assertReturn, strings.TrimPrefix(p, assertReturnPrefix))
+	}
 }
 
 func (m *WasmModule) printImports(writer FormattingWriter) {
@@ -87,6 +104,10 @@ func (m *WasmModule) print(writer FormattingWriter) {
 	writer.Printf("\n")
 	m.printExports(writer, bodyIndent)
 	writer.Printf(") ;; end Go package '%s'\n", m.name)
+	writer.Printf("\n")
+	for _, a := range m.assertReturn {
+		writer.PrintfIndent(m.indent, "(assert_return %s)\n", a)
+	}
 }
 
 func astNameToWASM(astName string) string {

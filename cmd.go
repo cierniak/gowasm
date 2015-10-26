@@ -54,7 +54,7 @@ func (w *FormattingWriterImpl) WriteToFile(name string) (int, error) {
 func Compile(fileName string, writer FormattingWriter) {
 	fmt.Printf("Compiling file '%s'\n", fileName)
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, fileName, nil, 0)
+	f, err := parser.ParseFile(fset, fileName, nil, parser.ParseComments)
 	if err != nil {
 		panic(err)
 	}

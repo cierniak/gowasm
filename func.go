@@ -37,6 +37,11 @@ type WasmResult struct {
 }
 
 func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, indent int) (*WasmFunc, error) {
+	if cg := funcDecl.Doc; cg != nil {
+		for _, c := range cg.List {
+			m.parseComment(c.Text)
+		}
+	}
 	f := &WasmFunc{
 		funcDecl:    funcDecl,
 		fset:        fset,
