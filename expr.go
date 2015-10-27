@@ -39,6 +39,12 @@ type WasmGetLocal struct {
 	t        *WasmType
 }
 
+// ( set_local <var> <expr> )
+type WasmSetLocal struct {
+	lhs WasmVariable
+	rhs WasmExpression
+}
+
 // ( <type>.<binop> <expr> <expr> )
 type WasmBinOp struct {
 	tok token.Token
@@ -155,4 +161,14 @@ func (r *WasmReturn) print(writer FormattingWriter) {
 		r.value.print(writer)
 	}
 	writer.Printf(")")
+}
+
+func (s *WasmSetLocal) print(writer FormattingWriter) {
+	writer.Printf("(set_local %s ", s.lhs.getName())
+	s.rhs.print(writer)
+	writer.Printf(")")
+}
+
+func (s *WasmSetLocal) getType() *WasmType {
+	return s.lhs.getType()
 }

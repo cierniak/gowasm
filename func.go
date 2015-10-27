@@ -17,6 +17,7 @@ type WasmFunc struct {
 	namePos     token.Pos
 	params      []*WasmParam
 	result      *WasmResult
+	locals      []*WasmLocal
 	expressions []WasmExpression
 }
 
@@ -24,6 +25,12 @@ type WasmFunc struct {
 type WasmParam struct {
 	astIdent *ast.Ident
 	astType  ast.Expr
+	name     string
+	t        *WasmType
+}
+
+type WasmLocal struct {
+	astIdent *ast.Ident
 	name     string
 	t        *WasmType
 }
@@ -48,6 +55,7 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 		module:      m,
 		indent:      indent,
 		params:      make([]*WasmParam, 0, 10),
+		locals:      make([]*WasmLocal, 0, 10),
 		expressions: make([]WasmExpression, 0, 10),
 	}
 	if ident := funcDecl.Name; ident != nil {
@@ -110,6 +118,11 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 	}
 	writer.Printf("\n")
 	bodyIndent := f.indent + 1
+	for _, v := range f.locals {
+		writer.PrintfIndent(bodyIndent, "")
+		v.print(writer)
+		writer.Printf("\n")
+	}
 	for _, expr := range f.expressions {
 		writer.PrintfIndent(bodyIndent, "")
 		expr.print(writer)
@@ -138,5 +151,22 @@ func (p *WasmParam) print(writer FormattingWriter) {
 func (r *WasmResult) print(writer FormattingWriter) {
 	writer.Printf(" (result ")
 	r.t.print(writer)
+	writer.Printf(")")
+}
+
+func (v *WasmLocal) getName() string {
+	return v.name
+}
+
+func (v *WasmLocal) getType() *WasmType {
+	return v.t
+}
+
+func (v *WasmLocal) print(writer FormattingWriter) {
+	writer.Printf("(local ")
+	if v.name != "" {
+		writer.Printf("%s ", v.name)
+	}
+	v.t.print(writer)
 	writer.Printf(")")
 }
