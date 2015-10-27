@@ -11,14 +11,20 @@ type BinOp int
 const (
 	binOpInvalid BinOp = -1
 	binOpAdd     BinOp = 1
+	binOpSub     BinOp = 2
+	binOpMul     BinOp = 3
 )
 
 var binOpNames = [...]string{
 	binOpAdd: "add",
+	binOpSub: "sub",
+	binOpMul: "mul",
 }
 
 var binOpMapping = [...]BinOp{
 	token.ADD: binOpAdd,
+	token.SUB: binOpSub,
+	token.MUL: binOpMul,
 }
 
 type WasmExpression interface {
@@ -72,6 +78,8 @@ func (f *WasmFunc) parseExpr(expr ast.Expr, typeHint *WasmType) (WasmExpression,
 		return f.parseCallExpr(expr)
 	case *ast.Ident:
 		return f.parseIdent(expr)
+	case *ast.ParenExpr:
+		return f.parseParenExpr(expr, typeHint)
 	}
 }
 
@@ -86,6 +94,14 @@ func (f *WasmFunc) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType) (WasmExp
 	return val, nil
 }
 
+func isSupportedBinOp(tok token.Token) bool {
+	if int(tok) >= len(binOpMapping) {
+		return false
+	}
+	t := binOpMapping[tok]
+	return int(t) > 0
+}
+
 func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType) (WasmExpression, error) {
 	x, err := f.parseExpr(expr.X, typeHint)
 	if err != nil {
@@ -94,6 +110,9 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType) (Wa
 	y, err := f.parseExpr(expr.Y, x.getType())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get operand Y in a binary expression: %v", err)
+	}
+	if !isSupportedBinOp(expr.Op) {
+		return nil, fmt.Errorf("unsupported binary op: %v", expr.Op)
 	}
 	xt := x.getType()
 	b := &WasmBinOp{
@@ -141,6 +160,10 @@ func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
 		f:        f,
 	}
 	return g, nil
+}
+
+func (f *WasmFunc) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType) (WasmExpression, error) {
+	return f.parseExpr(p.X, typeHint)
 }
 
 func (v *WasmValue) print(writer FormattingWriter) {
