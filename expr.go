@@ -26,6 +26,12 @@ type WasmExpression interface {
 	getType() *WasmType
 }
 
+// value: <int> | <float>
+type WasmValue struct {
+	astBasicLiteral *ast.BasicLit
+	t               *WasmType
+}
+
 // ( return <expr>? )
 type WasmReturn struct {
 	value WasmExpression
@@ -54,12 +60,14 @@ type WasmBinOp struct {
 	t   *WasmType
 }
 
-func (f *WasmFunc) parseExpr(expr ast.Expr) (WasmExpression, error) {
+func (f *WasmFunc) parseExpr(expr ast.Expr, typeHint *WasmType) (WasmExpression, error) {
 	switch expr := expr.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), f.fset))
+	case *ast.BasicLit:
+		return f.parseBasicLit(expr, typeHint)
 	case *ast.BinaryExpr:
-		return f.parseBinaryExpr(expr)
+		return f.parseBinaryExpr(expr, typeHint)
 	case *ast.CallExpr:
 		return f.parseCallExpr(expr)
 	case *ast.Ident:
@@ -67,12 +75,23 @@ func (f *WasmFunc) parseExpr(expr ast.Expr) (WasmExpression, error) {
 	}
 }
 
-func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr) (WasmExpression, error) {
-	x, err := f.parseExpr(expr.X)
+func (f *WasmFunc) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType) (WasmExpression, error) {
+	if typeHint == nil {
+		return nil, fmt.Errorf("not implemented: BasicLit without type hint: %v", lit.Value)
+	}
+	val := &WasmValue{
+		astBasicLiteral: lit,
+		t:               typeHint,
+	}
+	return val, nil
+}
+
+func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType) (WasmExpression, error) {
+	x, err := f.parseExpr(expr.X, typeHint)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get operand X in a binary expression: %v", err)
 	}
-	y, err := f.parseExpr(expr.Y)
+	y, err := f.parseExpr(expr.Y, x.getType())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get operand Y in a binary expression: %v", err)
 	}
@@ -90,7 +109,7 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr) (WasmExpression, error)
 func (f *WasmFunc) parseArgs(args []ast.Expr) []WasmExpression {
 	result := make([]WasmExpression, 0, len(args))
 	for _, arg := range args {
-		e, err := f.parseExpr(arg)
+		e, err := f.parseExpr(arg, nil) // TODO: should this be nil?
 		if err != nil {
 			panic(err)
 		}
@@ -122,6 +141,16 @@ func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
 		f:        f,
 	}
 	return g, nil
+}
+
+func (v *WasmValue) print(writer FormattingWriter) {
+	writer.Printf("(")
+	v.t.print(writer)
+	writer.Printf(".const %s)", v.astBasicLiteral.Value)
+}
+
+func (v *WasmValue) getType() *WasmType {
+	return v.t
 }
 
 func (b *WasmBinOp) getType() *WasmType {

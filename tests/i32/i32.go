@@ -5,3 +5,7 @@ func Add(a, b int32) int32 {
 	c := a + b
 	return c
 }
+
+func Two() int32 {
+	return 2
+}

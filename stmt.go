@@ -37,7 +37,7 @@ func (f *WasmFunc) parseAssignStmt(stmt *ast.AssignStmt) (WasmExpression, error)
 		// TODO: support other assignments
 		return nil, fmt.Errorf("unimplemented AssignStmt, token='%v'", stmt.Tok)
 	}
-	rhs, err := f.parseExpr(stmt.Rhs[0])
+	rhs, err := f.parseExpr(stmt.Rhs[0], nil)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing RHS of an assignment: %v", err)
 	}
@@ -66,7 +66,7 @@ func (f *WasmFunc) parseAssignStmt(stmt *ast.AssignStmt) (WasmExpression, error)
 }
 
 func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt) (WasmExpression, error) {
-	expr, err := f.parseExpr(stmt.X)
+	expr, err := f.parseExpr(stmt.X, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unimplemented ExprStmt: %v", err)
 	}
@@ -79,7 +79,7 @@ func (f *WasmFunc) parseReturnStmt(stmt *ast.ReturnStmt) (WasmExpression, error)
 		if len(stmt.Results) != 1 {
 			return nil, fmt.Errorf("unimplemented multi-value return statement")
 		}
-		value, err := f.parseExpr(stmt.Results[0])
+		value, err := f.parseExpr(stmt.Results[0], f.result.t)
 		if err != nil {
 			return nil, err
 		}
