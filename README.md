@@ -34,3 +34,8 @@ If you installed the interpreted from the spec repo (see prerequisites), you can
 ```
 wasm -t out.wast
 ```
+You can run the tests compiled by the standard Go compiler to compare the output to that obtained by gowasm:
+```
+cd $GOWASM
+go run src/gowasm/tests/main.go
+```
