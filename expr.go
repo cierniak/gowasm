@@ -30,6 +30,7 @@ var binOpMapping = [...]BinOp{
 type WasmExpression interface {
 	print(writer FormattingWriter)
 	getType() *WasmType
+	getNode() ast.Node
 }
 
 // value: <int> | <float>
@@ -41,6 +42,7 @@ type WasmValue struct {
 // ( return <expr>? )
 type WasmReturn struct {
 	value WasmExpression
+	stmt  *ast.ReturnStmt
 }
 
 // ( get_local <var> )
@@ -53,8 +55,9 @@ type WasmGetLocal struct {
 
 // ( set_local <var> <expr> )
 type WasmSetLocal struct {
-	lhs WasmVariable
-	rhs WasmExpression
+	lhs  WasmVariable
+	rhs  WasmExpression
+	stmt *ast.AssignStmt
 }
 
 // ( <type>.<binop> <expr> <expr> )
@@ -176,6 +179,10 @@ func (v *WasmValue) getType() *WasmType {
 	return v.t
 }
 
+func (v *WasmValue) getNode() ast.Node {
+	return nil
+}
+
 func (b *WasmBinOp) getType() *WasmType {
 	return b.t
 }
@@ -190,12 +197,20 @@ func (b *WasmBinOp) print(writer FormattingWriter) {
 	writer.Printf(")")
 }
 
+func (b *WasmBinOp) getNode() ast.Node {
+	return nil
+}
+
 func (g *WasmGetLocal) print(writer FormattingWriter) {
 	writer.Printf("(get_local %s)", g.def.getName())
 }
 
 func (g *WasmGetLocal) getType() *WasmType {
 	return g.f.module.variables[g.astIdent.Obj].getType()
+}
+
+func (g *WasmGetLocal) getNode() ast.Node {
+	return nil
 }
 
 func (r *WasmReturn) getType() *WasmType {
@@ -215,6 +230,14 @@ func (r *WasmReturn) print(writer FormattingWriter) {
 	writer.Printf(")")
 }
 
+func (r *WasmReturn) getNode() ast.Node {
+	if r.stmt == nil {
+		return nil
+	} else {
+		return r.stmt
+	}
+}
+
 func (s *WasmSetLocal) print(writer FormattingWriter) {
 	writer.Printf("(set_local %s ", s.lhs.getName())
 	s.rhs.print(writer)
@@ -223,4 +246,12 @@ func (s *WasmSetLocal) print(writer FormattingWriter) {
 
 func (s *WasmSetLocal) getType() *WasmType {
 	return s.lhs.getType()
+}
+
+func (s *WasmSetLocal) getNode() ast.Node {
+	if s.stmt == nil {
+		return nil
+	} else {
+		return s.stmt
+	}
 }

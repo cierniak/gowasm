@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
+	"strings"
 )
 
 // func:   ( func <name>? <type>? <param>* <result>? <local>* <expr>* )
@@ -124,11 +127,24 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 		writer.Printf("\n")
 	}
 	for _, expr := range f.expressions {
+		f.printGoSource(bodyIndent, expr.getNode(), writer)
 		writer.PrintfIndent(bodyIndent, "")
 		expr.print(writer)
 		writer.Printf("\n")
 	}
 	writer.PrintfIndent(f.indent, ")\n")
+}
+
+func (f *WasmFunc) printGoSource(bodyIndent int, node ast.Node, writer FormattingWriter) {
+	if node == nil || node.Pos() == 0 {
+		return
+	}
+	const linePrefix = ";;"
+	var buf bytes.Buffer
+	printer.Fprint(&buf, f.fset, node)
+	s := buf.String()
+	s = strings.Replace(s, "\n", "\n"+linePrefix, -1)
+	writer.PrintfIndent(bodyIndent, ";; %s\n", s)
 }
 
 func (p *WasmParam) getName() string {

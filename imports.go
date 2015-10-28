@@ -20,6 +20,7 @@ type WasmImport struct {
 type WasmCallImport struct {
 	i    *WasmImport
 	args []WasmExpression
+	call *ast.CallExpr
 }
 
 func (i *WasmImport) print(writer FormattingWriter) {
@@ -71,6 +72,7 @@ func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr) (W
 	c := &WasmCallImport{
 		i:    i,
 		args: args,
+		call: call,
 	}
 	return c, nil
 }
@@ -87,4 +89,12 @@ func (c *WasmCallImport) print(writer FormattingWriter) {
 		arg.print(writer)
 	}
 	writer.Printf(")")
+}
+
+func (c *WasmCallImport) getNode() ast.Node {
+	if c.call == nil {
+		return nil
+	} else {
+		return c.call
+	}
 }

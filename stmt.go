@@ -58,8 +58,9 @@ func (f *WasmFunc) parseAssignStmt(stmt *ast.AssignStmt) (WasmExpression, error)
 		f.module.variables[lhs.Obj] = v
 		f.locals = append(f.locals, v)
 		s := &WasmSetLocal{
-			lhs: v,
-			rhs: rhs,
+			lhs:  v,
+			rhs:  rhs,
+			stmt: stmt,
 		}
 		return s, nil
 	}
@@ -74,7 +75,9 @@ func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt) (WasmExpression, error) {
 }
 
 func (f *WasmFunc) parseReturnStmt(stmt *ast.ReturnStmt) (WasmExpression, error) {
-	r := &WasmReturn{}
+	r := &WasmReturn{
+		stmt: stmt,
+	}
 	if stmt.Results != nil {
 		if len(stmt.Results) != 1 {
 			return nil, fmt.Errorf("unimplemented multi-value return statement")
