@@ -45,6 +45,13 @@ type WasmReturn struct {
 	stmt  *ast.ReturnStmt
 }
 
+// ( call <var> <expr>* )
+type WasmCall struct {
+	name string
+	args []WasmExpression
+	call *ast.CallExpr
+}
+
 // ( get_local <var> )
 type WasmGetLocal struct {
 	astIdent *ast.Ident
@@ -144,6 +151,14 @@ func (f *WasmFunc) parseCallExpr(call *ast.CallExpr) (WasmExpression, error) {
 	switch fun := call.Fun.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, f.fset))
+	case *ast.Ident:
+		args := f.parseArgs(call.Args)
+		c := &WasmCall{
+			name: astNameToWASM(fun.Name),
+			args: args,
+			call: call,
+		}
+		return c, nil
 	case *ast.SelectorExpr:
 		if isWASMRuntimePackage(fun.X) {
 			return f.parseWASMRuntimeCall(fun.Sel, call)
@@ -253,5 +268,27 @@ func (s *WasmSetLocal) getNode() ast.Node {
 		return nil
 	} else {
 		return s.stmt
+	}
+}
+
+func (p *WasmCall) getType() *WasmType {
+	// TODO
+	return nil
+}
+
+func (c *WasmCall) print(writer FormattingWriter) {
+	writer.Printf("(call %s", c.name)
+	for _, arg := range c.args {
+		writer.Printf(" ")
+		arg.print(writer)
+	}
+	writer.Printf(")")
+}
+
+func (c *WasmCall) getNode() ast.Node {
+	if c.call == nil {
+		return nil
+	} else {
+		return c.call
 	}
 }
