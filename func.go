@@ -139,7 +139,8 @@ func (f *WasmFunc) printGoSource(bodyIndent int, node ast.Node, writer Formattin
 	if node == nil || node.Pos() == 0 {
 		return
 	}
-	const linePrefix = ";;"
+	indentString := strings.Repeat(indentPattern, bodyIndent)
+	linePrefix := indentString + ";; "
 	var buf bytes.Buffer
 	printer.Fprint(&buf, f.fset, node)
 	s := buf.String()

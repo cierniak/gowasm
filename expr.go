@@ -13,18 +13,24 @@ const (
 	binOpAdd     BinOp = 1
 	binOpSub     BinOp = 2
 	binOpMul     BinOp = 3
+	binOpDiv     BinOp = 4
+	binOpEq      BinOp = 5
 )
 
 var binOpNames = [...]string{
 	binOpAdd: "add",
 	binOpSub: "sub",
 	binOpMul: "mul",
+	binOpDiv: "div_s",
+	binOpEq:  "eq",
 }
 
 var binOpMapping = [...]BinOp{
 	token.ADD: binOpAdd,
 	token.SUB: binOpSub,
 	token.MUL: binOpMul,
+	token.QUO: binOpDiv,
+	token.EQL: binOpEq,
 }
 
 type WasmExpression interface {
@@ -43,6 +49,13 @@ type WasmValue struct {
 type WasmReturn struct {
 	value WasmExpression
 	stmt  *ast.ReturnStmt
+}
+
+// ( if <expr> <expr> <expr> )
+// ( if <expr> <expr> )
+type WasmIf struct {
+	cond WasmExpression
+	stmt *ast.IfStmt
 }
 
 // ( call <var> <expr>* )
@@ -250,6 +263,25 @@ func (r *WasmReturn) getNode() ast.Node {
 		return nil
 	} else {
 		return r.stmt
+	}
+}
+
+func (i *WasmIf) getType() *WasmType {
+	// TODO
+	return nil
+}
+
+func (i *WasmIf) print(writer FormattingWriter) {
+	writer.Printf(";; (if ")
+	i.cond.print(writer)
+	writer.Printf(" ...)")
+}
+
+func (i *WasmIf) getNode() ast.Node {
+	if i.stmt == nil {
+		return nil
+	} else {
+		return i.stmt
 	}
 }
 

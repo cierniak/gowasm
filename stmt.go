@@ -17,6 +17,8 @@ func (f *WasmFunc) parseBody(body *ast.BlockStmt) {
 			expr, err = f.parseAssignStmt(stmt)
 		case *ast.ExprStmt:
 			expr, err = f.parseExprStmt(stmt)
+		case *ast.IfStmt:
+			expr, err = f.parseIfStmt(stmt)
 		case *ast.ReturnStmt:
 			expr, err = f.parseReturnStmt(stmt)
 		}
@@ -72,6 +74,25 @@ func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt) (WasmExpression, error) {
 		return nil, fmt.Errorf("unimplemented ExprStmt: %v", err)
 	}
 	return expr, nil
+}
+
+func (f *WasmFunc) parseIfStmt(stmt *ast.IfStmt) (WasmExpression, error) {
+	if stmt.Init != nil {
+		return nil, fmt.Errorf("unimplemented IfStmt with an init")
+	}
+	if stmt.Else != nil {
+		return nil, fmt.Errorf("unimplemented IfStmt with an else")
+	}
+	cond, err := f.parseExpr(stmt.Cond, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error in condition of an IfStmt: %v", err)
+	}
+	// TODO: parse the body
+	i := &WasmIf{
+		cond: cond,
+		stmt: stmt,
+	}
+	return i, nil
 }
 
 func (f *WasmFunc) parseReturnStmt(stmt *ast.ReturnStmt) (WasmExpression, error) {

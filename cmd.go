@@ -36,8 +36,10 @@ func (w *FormattingWriterImpl) Printf(format string, a ...interface{}) (n int, e
 	return (&w.b).Write([]byte(s))
 }
 
+const indentPattern = "  "
+
 func (w *FormattingWriterImpl) PrintfIndent(indent int, format string, a ...interface{}) (n int, err error) {
-	indentString := strings.Repeat("  ", indent)
+	indentString := strings.Repeat(indentPattern, indent)
 	s := fmt.Sprintf(format, a...)
 	return (&w.b).Write([]byte(indentString + s))
 }

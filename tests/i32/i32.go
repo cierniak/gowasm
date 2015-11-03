@@ -11,9 +11,9 @@ func Expr1(a, b int32) int32 {
 	return 2*(a-b) + two()
 }
 
-//wasm:assert_return (invoke "Expr2" (i32.const 100) (i32.const 20) (i32.const 5)) (i32.const 125)
+//wasm:assert_return (invoke "Expr2" (i32.const 100) (i32.const 20) (i32.const 5)) (i32.const 104)
 func Expr2(a, b, c int32) int32 {
-	return Add(a, b+c)
+	return Add(a, b/c)
 }
 
 func two() int32 {
