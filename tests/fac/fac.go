@@ -11,3 +11,9 @@ func Fact(n int64) int64 {
 	wasm.Print_int64(n)
 	return n
 }
+
+func PrintAll(n int64) {
+	for i := int64(0); i < 10; i++ {
+		wasm.Print_int64(i)
+	}
+}

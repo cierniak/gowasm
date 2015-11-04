@@ -55,12 +55,20 @@ type WasmValue struct {
 	t               *WasmType
 }
 
+// Expression list that may introduce new locals, e.g. block or loop.
+type WasmScope struct {
+	expressions []WasmExpression
+	locals      []*WasmLocal
+	f           *WasmFunc
+	indent      int
+}
+
 // ( block <expr>+ )
 // ( block <var> <expr>+ ) ;; = (label <var> (block <expr>+))
 type WasmBlock struct {
 	WasmExprBase
-	expressions []WasmExpression
-	stmt        *ast.BlockStmt
+	scope *WasmScope
+	stmt  *ast.BlockStmt
 }
 
 // ( return <expr>? )
@@ -77,6 +85,22 @@ type WasmIf struct {
 	cond WasmExpression
 	body *WasmBlock
 	stmt *ast.IfStmt
+}
+
+// ( loop <expr>* ) ;; = (loop (block <expr>*))
+// ( loop <var> <var>? <expr>* ) ;; = (label <var> (loop (block <var>? <expr>*)))
+type WasmLoop struct {
+	WasmExprBase
+	cond        WasmExpression
+	expressions []WasmExpression
+	body        *WasmBlock
+	stmt        *ast.ForStmt
+}
+
+// ( break <var> <expr>? )
+type WasmBreak struct {
+	WasmExprBase
+	v int
 }
 
 // ( call <var> <expr>* )
@@ -330,6 +354,39 @@ func (i *WasmIf) getNode() ast.Node {
 	}
 }
 
+func (l *WasmLoop) getType() *WasmType {
+	// TODO
+	return nil
+}
+
+func (l *WasmLoop) print(writer FormattingWriter) {
+	writer.PrintfIndent(l.getIndent(), "(loop\n")
+	for _, e := range l.expressions {
+		e.print(writer)
+	}
+	writer.PrintfIndent(l.getIndent(), ") ;; loop\n")
+}
+
+func (l *WasmLoop) getNode() ast.Node {
+	if l.stmt == nil {
+		return nil
+	} else {
+		return l.stmt
+	}
+}
+
+func (b *WasmBreak) getType() *WasmType {
+	return nil
+}
+
+func (b *WasmBreak) print(writer FormattingWriter) {
+	writer.PrintfIndent(b.getIndent(), "(break %d)\n", b.v)
+}
+
+func (b *WasmBreak) getNode() ast.Node {
+	return nil
+}
+
 func (s *WasmSetLocal) print(writer FormattingWriter) {
 	writer.PrintfIndent(s.getIndent(), "(set_local %s\n", s.lhs.getName())
 	s.rhs.print(writer)
@@ -370,13 +427,12 @@ func (c *WasmCall) getNode() ast.Node {
 }
 
 func (b *WasmBlock) getType() *WasmType {
-	// TODO
 	return nil
 }
 
 func (b *WasmBlock) print(writer FormattingWriter) {
 	writer.PrintfIndent(b.getIndent(), "(block\n")
-	for _, expr := range b.expressions {
+	for _, expr := range b.scope.expressions {
 		expr.print(writer)
 	}
 	writer.PrintfIndent(b.getIndent(), ") ;; block\n")

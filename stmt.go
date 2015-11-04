@@ -7,11 +7,20 @@ import (
 )
 
 func (f *WasmFunc) parseFuncBody(body *ast.BlockStmt) {
-	f.expressions = f.parseBody(body, f.indent+1)
+	scope, err := f.parseStmtList(body, f.indent+1)
+	if err != nil {
+		panic(err)
+	}
+	f.scope = scope
 }
 
-func (f *WasmFunc) parseBody(body *ast.BlockStmt, indent int) []WasmExpression {
-	expressions := make([]WasmExpression, 0, 10)
+func (f *WasmFunc) parseStmtList(body *ast.BlockStmt, indent int) (*WasmScope, error) {
+	s := &WasmScope{
+		f:           f,
+		indent:      indent,
+		locals:      make([]*WasmLocal, 0, 10),
+		expressions: make([]WasmExpression, 0, 10),
+	}
 	for _, stmt := range body.List {
 		var err error
 		var expr WasmExpression
@@ -19,25 +28,27 @@ func (f *WasmFunc) parseBody(body *ast.BlockStmt, indent int) []WasmExpression {
 		default:
 			panic(fmt.Errorf("unimplemented statement: %v", stmt))
 		case *ast.AssignStmt:
-			expr, err = f.parseAssignStmt(stmt, indent)
+			expr, err = s.parseAssignStmt(stmt, indent)
 		case *ast.ExprStmt:
 			expr, err = f.parseExprStmt(stmt, indent)
+		case *ast.ForStmt:
+			expr, err = f.parseForStmt(stmt, indent)
 		case *ast.IfStmt:
 			expr, err = f.parseIfStmt(stmt, indent)
 		case *ast.ReturnStmt:
 			expr, err = f.parseReturnStmt(stmt, indent)
 		}
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		if expr != nil {
-			expressions = append(expressions, expr)
+			s.expressions = append(s.expressions, expr)
 		}
 	}
-	return expressions
+	return s, nil
 }
 
-func (f *WasmFunc) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
 	if len(stmt.Lhs) != 1 || len(stmt.Rhs) != 1 {
 		return nil, fmt.Errorf("unimplemented multi-value AssignStmt")
 	}
@@ -45,7 +56,7 @@ func (f *WasmFunc) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpres
 		// TODO: support other assignments
 		return nil, fmt.Errorf("unimplemented AssignStmt, token='%v'", stmt.Tok)
 	}
-	rhs, err := f.parseExpr(stmt.Rhs[0], nil, indent+1)
+	rhs, err := s.f.parseExpr(stmt.Rhs[0], nil, indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing RHS of an assignment: %v", err)
 	}
@@ -56,22 +67,22 @@ func (f *WasmFunc) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpres
 
 	switch lhs := stmt.Lhs[0].(type) {
 	default:
-		return nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), f.fset))
+		return nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
 	case *ast.Ident:
 		v := &WasmLocal{
 			astIdent: lhs,
 			name:     astNameToWASM(lhs.Name),
 			t:        ty,
 		}
-		f.module.variables[lhs.Obj] = v
-		f.locals = append(f.locals, v)
-		s := &WasmSetLocal{
+		s.f.module.variables[lhs.Obj] = v
+		s.locals = append(s.locals, v)
+		sl := &WasmSetLocal{
 			lhs:  v,
 			rhs:  rhs,
 			stmt: stmt,
 		}
-		s.setIndent(indent + 1)
-		return s, nil
+		sl.setIndent(indent + 1)
+		return sl, nil
 	}
 }
 
@@ -83,11 +94,27 @@ func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpression
 	return expr, nil
 }
 
-func (f *WasmFunc) parseBlockStmt(stmt *ast.BlockStmt, indent int) (*WasmBlock, error) {
-	expressions := f.parseBody(stmt, indent+1)
-	b := &WasmBlock{
-		expressions: expressions,
+func (f *WasmFunc) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression, error) {
+	l := &WasmLoop{
+		expressions: make([]WasmExpression, 0, 10),
 		stmt:        stmt,
+	}
+	l.setIndent(indent)
+	b := &WasmBreak{}
+	b.setIndent(indent + 1)
+	l.expressions = append(l.expressions, b)
+	// TODO: Finish implementing the loop.
+	return l, nil
+}
+
+func (f *WasmFunc) parseBlockStmt(stmt *ast.BlockStmt, indent int) (*WasmBlock, error) {
+	scope, err := f.parseStmtList(stmt, f.indent+1)
+	if err != nil {
+		return nil, err
+	}
+	b := &WasmBlock{
+		scope: scope,
+		stmt:  stmt,
 	}
 	b.setIndent(indent)
 	return b, nil

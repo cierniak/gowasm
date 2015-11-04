@@ -11,17 +11,16 @@ import (
 
 // func:   ( func <name>? <type>? <param>* <result>? <local>* <expr>* )
 type WasmFunc struct {
-	funcDecl    *ast.FuncDecl
-	fset        *token.FileSet
-	module      *WasmModule
-	indent      int
-	name        string
-	origName    string
-	namePos     token.Pos
-	params      []*WasmParam
-	result      *WasmResult
-	locals      []*WasmLocal
-	expressions []WasmExpression
+	funcDecl *ast.FuncDecl
+	fset     *token.FileSet
+	module   *WasmModule
+	indent   int
+	name     string
+	origName string
+	namePos  token.Pos
+	params   []*WasmParam
+	result   *WasmResult
+	scope    *WasmScope
 }
 
 // param:  ( param <type>* ) | ( param <name> <type> )
@@ -53,13 +52,11 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 		}
 	}
 	f := &WasmFunc{
-		funcDecl:    funcDecl,
-		fset:        fset,
-		module:      m,
-		indent:      indent,
-		params:      make([]*WasmParam, 0, 10),
-		locals:      make([]*WasmLocal, 0, 10),
-		expressions: make([]WasmExpression, 0, 10),
+		funcDecl: funcDecl,
+		fset:     fset,
+		module:   m,
+		indent:   indent,
+		params:   make([]*WasmParam, 0, 10),
 	}
 	if ident := funcDecl.Name; ident != nil {
 		f.name = astNameToWASM(ident.Name)
@@ -121,12 +118,12 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 	}
 	writer.Printf("\n")
 	bodyIndent := f.indent + 1
-	for _, v := range f.locals {
+	for _, v := range f.scope.locals {
 		writer.PrintfIndent(bodyIndent, "")
 		v.print(writer)
 		writer.Printf("\n")
 	}
-	for i, expr := range f.expressions {
+	for i, expr := range f.scope.expressions {
 		if i > 0 {
 			writer.Printf("\n")
 		}
