@@ -37,16 +37,35 @@ type WasmExpression interface {
 	print(writer FormattingWriter)
 	getType() *WasmType
 	getNode() ast.Node
+	getIndent() int
+	setIndent(indent int)
+	getParent() WasmExpression
+	setParent(parent WasmExpression)
+}
+
+type WasmExprBase struct {
+	indent int
+	parent WasmExpression
 }
 
 // value: <int> | <float>
 type WasmValue struct {
+	WasmExprBase
 	astBasicLiteral *ast.BasicLit
 	t               *WasmType
 }
 
+// ( block <expr>+ )
+// ( block <var> <expr>+ ) ;; = (label <var> (block <expr>+))
+type WasmBlock struct {
+	WasmExprBase
+	expressions []WasmExpression
+	stmt        *ast.BlockStmt
+}
+
 // ( return <expr>? )
 type WasmReturn struct {
+	WasmExprBase
 	value WasmExpression
 	stmt  *ast.ReturnStmt
 }
@@ -54,12 +73,15 @@ type WasmReturn struct {
 // ( if <expr> <expr> <expr> )
 // ( if <expr> <expr> )
 type WasmIf struct {
+	WasmExprBase
 	cond WasmExpression
+	body *WasmBlock
 	stmt *ast.IfStmt
 }
 
 // ( call <var> <expr>* )
 type WasmCall struct {
+	WasmExprBase
 	name string
 	args []WasmExpression
 	call *ast.CallExpr
@@ -67,6 +89,7 @@ type WasmCall struct {
 
 // ( get_local <var> )
 type WasmGetLocal struct {
+	WasmExprBase
 	astIdent *ast.Ident
 	def      WasmVariable
 	f        *WasmFunc
@@ -75,6 +98,7 @@ type WasmGetLocal struct {
 
 // ( set_local <var> <expr> )
 type WasmSetLocal struct {
+	WasmExprBase
 	lhs  WasmVariable
 	rhs  WasmExpression
 	stmt *ast.AssignStmt
@@ -82,6 +106,7 @@ type WasmSetLocal struct {
 
 // ( <type>.<binop> <expr> <expr> )
 type WasmBinOp struct {
+	WasmExprBase
 	tok token.Token
 	op  BinOp
 	x   WasmExpression
@@ -89,24 +114,40 @@ type WasmBinOp struct {
 	t   *WasmType
 }
 
-func (f *WasmFunc) parseExpr(expr ast.Expr, typeHint *WasmType) (WasmExpression, error) {
+func (e *WasmExprBase) getIndent() int {
+	return e.indent
+}
+
+func (e *WasmExprBase) setIndent(indent int) {
+	e.indent = indent
+}
+
+func (e *WasmExprBase) getParent() WasmExpression {
+	return e.parent
+}
+
+func (e *WasmExprBase) setParent(parent WasmExpression) {
+	e.parent = parent
+}
+
+func (f *WasmFunc) parseExpr(expr ast.Expr, typeHint *WasmType, indent int) (WasmExpression, error) {
 	switch expr := expr.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), f.fset))
 	case *ast.BasicLit:
-		return f.parseBasicLit(expr, typeHint)
+		return f.parseBasicLit(expr, typeHint, indent)
 	case *ast.BinaryExpr:
-		return f.parseBinaryExpr(expr, typeHint)
+		return f.parseBinaryExpr(expr, typeHint, indent)
 	case *ast.CallExpr:
-		return f.parseCallExpr(expr)
+		return f.parseCallExpr(expr, indent)
 	case *ast.Ident:
-		return f.parseIdent(expr)
+		return f.parseIdent(expr, indent)
 	case *ast.ParenExpr:
-		return f.parseParenExpr(expr, typeHint)
+		return f.parseParenExpr(expr, typeHint, indent)
 	}
 }
 
-func (f *WasmFunc) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType) (WasmExpression, error) {
+func (f *WasmFunc) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType, indent int) (WasmExpression, error) {
 	if typeHint == nil {
 		return nil, fmt.Errorf("not implemented: BasicLit without type hint: %v", lit.Value)
 	}
@@ -114,6 +155,7 @@ func (f *WasmFunc) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType) (WasmExp
 		astBasicLiteral: lit,
 		t:               typeHint,
 	}
+	val.setIndent(indent)
 	return val, nil
 }
 
@@ -125,12 +167,12 @@ func isSupportedBinOp(tok token.Token) bool {
 	return int(t) > 0
 }
 
-func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType) (WasmExpression, error) {
-	x, err := f.parseExpr(expr.X, typeHint)
+func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType, indent int) (WasmExpression, error) {
+	x, err := f.parseExpr(expr.X, typeHint, indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get operand X in a binary expression: %v", err)
 	}
-	y, err := f.parseExpr(expr.Y, x.getType())
+	y, err := f.parseExpr(expr.Y, x.getType(), indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get operand Y in a binary expression: %v", err)
 	}
@@ -145,13 +187,14 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType) (Wa
 		x:   x,
 		y:   y,
 	}
+	b.setIndent(indent)
 	return b, nil
 }
 
-func (f *WasmFunc) parseArgs(args []ast.Expr) []WasmExpression {
+func (f *WasmFunc) parseArgs(args []ast.Expr, indent int) []WasmExpression {
 	result := make([]WasmExpression, 0, len(args))
 	for _, arg := range args {
-		e, err := f.parseExpr(arg, nil) // TODO: should this be nil?
+		e, err := f.parseExpr(arg, nil, indent) // TODO: Should the hint be nil?
 		if err != nil {
 			panic(err)
 		}
@@ -160,17 +203,18 @@ func (f *WasmFunc) parseArgs(args []ast.Expr) []WasmExpression {
 	return result
 }
 
-func (f *WasmFunc) parseCallExpr(call *ast.CallExpr) (WasmExpression, error) {
+func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
 	switch fun := call.Fun.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, f.fset))
 	case *ast.Ident:
-		args := f.parseArgs(call.Args)
+		args := f.parseArgs(call.Args, indent+1)
 		c := &WasmCall{
 			name: astNameToWASM(fun.Name),
 			args: args,
 			call: call,
 		}
+		c.setIndent(indent)
 		return c, nil
 	case *ast.SelectorExpr:
 		if isWASMRuntimePackage(fun.X) {
@@ -180,7 +224,7 @@ func (f *WasmFunc) parseCallExpr(call *ast.CallExpr) (WasmExpression, error) {
 	return nil, fmt.Errorf("call expressions are not implemented at %s", positionString(call.Lparen, f.fset))
 }
 
-func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
+func (f *WasmFunc) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
 	v, ok := f.module.variables[ident.Obj]
 	if !ok {
 		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, f.fset))
@@ -190,17 +234,18 @@ func (f *WasmFunc) parseIdent(ident *ast.Ident) (WasmExpression, error) {
 		def:      v,
 		f:        f,
 	}
+	g.setIndent(indent)
 	return g, nil
 }
 
-func (f *WasmFunc) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType) (WasmExpression, error) {
-	return f.parseExpr(p.X, typeHint)
+func (f *WasmFunc) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType, indent int) (WasmExpression, error) {
+	return f.parseExpr(p.X, typeHint, indent)
 }
 
 func (v *WasmValue) print(writer FormattingWriter) {
-	writer.Printf("(")
+	writer.PrintfIndent(v.getIndent(), "(")
 	v.t.print(writer)
-	writer.Printf(".const %s)", v.astBasicLiteral.Value)
+	writer.Printf(".const %s)\n", v.astBasicLiteral.Value)
 }
 
 func (v *WasmValue) getType() *WasmType {
@@ -216,13 +261,12 @@ func (b *WasmBinOp) getType() *WasmType {
 }
 
 func (b *WasmBinOp) print(writer FormattingWriter) {
-	writer.Printf("(")
+	writer.PrintfIndent(b.getIndent(), "(")
 	b.t.print(writer)
-	writer.Printf(".%s ", binOpNames[b.op])
+	writer.Printf(".%s\n", binOpNames[b.op])
 	b.x.print(writer)
-	writer.Printf(" ")
 	b.y.print(writer)
-	writer.Printf(")")
+	writer.PrintfIndent(b.getIndent(), ") ;; bin op %s\n", binOpNames[b.op])
 }
 
 func (b *WasmBinOp) getNode() ast.Node {
@@ -230,7 +274,7 @@ func (b *WasmBinOp) getNode() ast.Node {
 }
 
 func (g *WasmGetLocal) print(writer FormattingWriter) {
-	writer.Printf("(get_local %s)", g.def.getName())
+	writer.PrintfIndent(g.getIndent(), "(get_local %s)\n", g.def.getName())
 }
 
 func (g *WasmGetLocal) getType() *WasmType {
@@ -250,12 +294,11 @@ func (r *WasmReturn) getType() *WasmType {
 }
 
 func (r *WasmReturn) print(writer FormattingWriter) {
-	writer.Printf("(return")
+	writer.PrintfIndent(r.getIndent(), "(return\n")
 	if r.value != nil {
-		writer.Printf(" ")
 		r.value.print(writer)
 	}
-	writer.Printf(")")
+	writer.PrintfIndent(r.getIndent(), ") ;; return\n")
 }
 
 func (r *WasmReturn) getNode() ast.Node {
@@ -272,9 +315,11 @@ func (i *WasmIf) getType() *WasmType {
 }
 
 func (i *WasmIf) print(writer FormattingWriter) {
-	writer.Printf(";; (if ")
+	writer.PrintfIndent(i.getIndent(), "(if\n")
 	i.cond.print(writer)
-	writer.Printf(" ...)")
+	writer.Printf("\n")
+	i.body.print(writer)
+	writer.PrintfIndent(i.getIndent(), ") ;; if\n")
 }
 
 func (i *WasmIf) getNode() ast.Node {
@@ -286,9 +331,9 @@ func (i *WasmIf) getNode() ast.Node {
 }
 
 func (s *WasmSetLocal) print(writer FormattingWriter) {
-	writer.Printf("(set_local %s ", s.lhs.getName())
+	writer.PrintfIndent(s.getIndent(), "(set_local %s\n", s.lhs.getName())
 	s.rhs.print(writer)
-	writer.Printf(")")
+	writer.PrintfIndent(s.getIndent(), ") ;; set_local %s\n", s.lhs.getName())
 }
 
 func (s *WasmSetLocal) getType() *WasmType {
@@ -309,12 +354,11 @@ func (p *WasmCall) getType() *WasmType {
 }
 
 func (c *WasmCall) print(writer FormattingWriter) {
-	writer.Printf("(call %s", c.name)
+	writer.PrintfIndent(c.getIndent(), "(call %s\n", c.name)
 	for _, arg := range c.args {
-		writer.Printf(" ")
 		arg.print(writer)
 	}
-	writer.Printf(")")
+	writer.PrintfIndent(c.getIndent(), ") ;; call %s\n", c.name)
 }
 
 func (c *WasmCall) getNode() ast.Node {
@@ -322,5 +366,26 @@ func (c *WasmCall) getNode() ast.Node {
 		return nil
 	} else {
 		return c.call
+	}
+}
+
+func (b *WasmBlock) getType() *WasmType {
+	// TODO
+	return nil
+}
+
+func (b *WasmBlock) print(writer FormattingWriter) {
+	writer.PrintfIndent(b.getIndent(), "(block\n")
+	for _, expr := range b.expressions {
+		expr.print(writer)
+	}
+	writer.PrintfIndent(b.getIndent(), ") ;; block\n")
+}
+
+func (b *WasmBlock) getNode() ast.Node {
+	if b.stmt == nil {
+		return nil
+	} else {
+		return b.stmt
 	}
 }

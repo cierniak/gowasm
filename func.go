@@ -69,7 +69,7 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 	if funcDecl.Type != nil {
 		f.parseType(funcDecl.Type)
 	}
-	f.parseBody(funcDecl.Body)
+	f.parseFuncBody(funcDecl.Body)
 	return f, nil
 }
 
@@ -128,11 +128,9 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 	}
 	for _, expr := range f.expressions {
 		f.printGoSource(bodyIndent, expr.getNode(), writer)
-		writer.PrintfIndent(bodyIndent, "")
 		expr.print(writer)
-		writer.Printf("\n")
 	}
-	writer.PrintfIndent(f.indent, ")\n")
+	writer.PrintfIndent(f.indent, ") ;; func %s\n", f.name)
 }
 
 func (f *WasmFunc) printGoSource(bodyIndent int, node ast.Node, writer FormattingWriter) {
@@ -185,5 +183,5 @@ func (v *WasmLocal) print(writer FormattingWriter) {
 		writer.Printf("%s ", v.name)
 	}
 	v.t.print(writer)
-	writer.Printf(")")
+	writer.Printf(")\n")
 }

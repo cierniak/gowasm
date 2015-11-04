@@ -18,6 +18,7 @@ type WasmImport struct {
 
 // ( call_import <var> <expr>* )
 type WasmCallImport struct {
+	WasmExprBase
 	i    *WasmImport
 	args []WasmExpression
 	call *ast.CallExpr
@@ -68,7 +69,7 @@ func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr) (W
 		}
 		f.module.imports[name] = i
 	}
-	args := f.parseArgs(call.Args)
+	args := f.parseArgs(call.Args, 0)
 	c := &WasmCallImport{
 		i:    i,
 		args: args,
