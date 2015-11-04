@@ -52,7 +52,7 @@ func (f *WasmFunc) parseWASMRuntimeSignature(name string) ([]*WasmType, error) {
 	return result, nil
 }
 
-func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr) (WasmExpression, error) {
+func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
 	name := ident.Name
 	params, err := f.parseWASMRuntimeSignature(name)
 	if err != nil {
@@ -69,12 +69,13 @@ func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr) (W
 		}
 		f.module.imports[name] = i
 	}
-	args := f.parseArgs(call.Args, 0)
+	args := f.parseArgs(call.Args, indent+1)
 	c := &WasmCallImport{
 		i:    i,
 		args: args,
 		call: call,
 	}
+	c.setIndent(indent)
 	return c, nil
 }
 
@@ -84,12 +85,11 @@ func (p *WasmCallImport) getType() *WasmType {
 }
 
 func (c *WasmCallImport) print(writer FormattingWriter) {
-	writer.Printf("(call_import %s", c.i.name)
+	writer.PrintfIndent(c.getIndent(), "(call_import %s\n", c.i.name)
 	for _, arg := range c.args {
-		writer.Printf(" ")
 		arg.print(writer)
 	}
-	writer.Printf(")")
+	writer.PrintfIndent(c.getIndent(), ") ;;\n")
 }
 
 func (c *WasmCallImport) getNode() ast.Node {

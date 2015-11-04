@@ -218,7 +218,7 @@ func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression
 		return c, nil
 	case *ast.SelectorExpr:
 		if isWASMRuntimePackage(fun.X) {
-			return f.parseWASMRuntimeCall(fun.Sel, call)
+			return f.parseWASMRuntimeCall(fun.Sel, call, indent)
 		}
 	}
 	return nil, fmt.Errorf("call expressions are not implemented at %s", positionString(call.Lparen, f.fset))

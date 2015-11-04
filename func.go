@@ -126,7 +126,10 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 		v.print(writer)
 		writer.Printf("\n")
 	}
-	for _, expr := range f.expressions {
+	for i, expr := range f.expressions {
+		if i > 0 {
+			writer.Printf("\n")
+		}
 		f.printGoSource(bodyIndent, expr.getNode(), writer)
 		expr.print(writer)
 	}
