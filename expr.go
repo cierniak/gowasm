@@ -15,6 +15,11 @@ const (
 	binOpMul     BinOp = 3
 	binOpDiv     BinOp = 4
 	binOpEq      BinOp = 5
+	binOpNe      BinOp = 6
+	binOpLt      BinOp = 7
+	binOpLe      BinOp = 8
+	binOpGt      BinOp = 9
+	binOpGe      BinOp = 10
 )
 
 var binOpNames = [...]string{
@@ -23,6 +28,11 @@ var binOpNames = [...]string{
 	binOpMul: "mul",
 	binOpDiv: "div_s",
 	binOpEq:  "eq",
+	binOpNe:  "ne",
+	binOpLt:  "lt_s", // TODO: for floats it should be "lt" and for unsigned, it should be "lt_u".
+	binOpLe:  "le_s",
+	binOpGt:  "gt_s",
+	binOpGe:  "ge_s",
 }
 
 var binOpMapping = [...]BinOp{
@@ -31,6 +41,11 @@ var binOpMapping = [...]BinOp{
 	token.MUL: binOpMul,
 	token.QUO: binOpDiv,
 	token.EQL: binOpEq,
+	token.NEQ: binOpNe,
+	token.LSS: binOpLt,
+	token.LEQ: binOpLe,
+	token.GTR: binOpGt,
+	token.GEQ: binOpGe,
 	token.INC: binOpAdd,
 	token.DEC: binOpSub,
 }
@@ -66,6 +81,11 @@ type WasmScope struct {
 	name        string
 }
 
+// ( nop )
+type WasmNop struct {
+	WasmExprBase
+}
+
 // ( block <expr>+ )
 // ( block <var> <expr>+ ) ;; = (label <var> (block <expr>+))
 type WasmBlock struct {
@@ -85,9 +105,10 @@ type WasmReturn struct {
 // ( if <expr> <expr> )
 type WasmIf struct {
 	WasmExprBase
-	cond WasmExpression
-	body *WasmBlock
-	stmt *ast.IfStmt
+	cond     WasmExpression
+	body     WasmExpression
+	bodyElse WasmExpression
+	stmt     *ast.IfStmt
 }
 
 // ( loop <expr>* ) ;; = (loop (block <expr>*))
@@ -290,6 +311,18 @@ func (f *WasmFunc) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType, indent i
 	return f.parseExpr(p.X, typeHint, indent)
 }
 
+func (n *WasmNop) getType() *WasmType {
+	return nil
+}
+
+func (n *WasmNop) print(writer FormattingWriter) {
+	writer.PrintfIndent(n.getIndent(), "(nop)\n")
+}
+
+func (n *WasmNop) getNode() ast.Node {
+	return nil
+}
+
 func (v *WasmValue) print(writer FormattingWriter) {
 	writer.PrintfIndent(v.getIndent(), "(")
 	v.t.print(writer)
@@ -358,15 +391,16 @@ func (r *WasmReturn) getNode() ast.Node {
 }
 
 func (i *WasmIf) getType() *WasmType {
-	// TODO
 	return nil
 }
 
 func (i *WasmIf) print(writer FormattingWriter) {
 	writer.PrintfIndent(i.getIndent(), "(if\n")
 	i.cond.print(writer)
-	writer.Printf("\n")
 	i.body.print(writer)
+	if i.bodyElse != nil {
+		i.bodyElse.print(writer)
+	}
 	writer.PrintfIndent(i.getIndent(), ") ;; if\n")
 }
 
@@ -379,7 +413,6 @@ func (i *WasmIf) getNode() ast.Node {
 }
 
 func (l *WasmLoop) getType() *WasmType {
-	// TODO
 	return nil
 }
 
