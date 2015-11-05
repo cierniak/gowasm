@@ -29,6 +29,7 @@ type WasmModule struct {
 	variables    map[*ast.Object]WasmVariable
 	imports      map[string]*WasmImport
 	assertReturn []string
+	invoke       []string
 }
 
 func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
@@ -41,6 +42,7 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 		variables:    make(map[*ast.Object]WasmVariable),
 		imports:      make(map[string]*WasmImport),
 		assertReturn: make([]string, 0, 10),
+		invoke:       make([]string, 0, 10),
 	}
 	if ident := f.Name; ident != nil {
 		m.name = ident.Name
@@ -68,8 +70,11 @@ func (m *WasmModule) parseComment(c string) {
 
 func (m *WasmModule) parsePragma(p string) {
 	assertReturnPrefix := "assert_return "
+	invokePrefix := "invoke "
 	if strings.HasPrefix(p, assertReturnPrefix) {
 		m.assertReturn = append(m.assertReturn, strings.TrimPrefix(p, assertReturnPrefix))
+	} else if strings.HasPrefix(p, invokePrefix) {
+		m.invoke = append(m.invoke, strings.TrimPrefix(p, invokePrefix))
 	}
 }
 
@@ -108,10 +113,17 @@ func (m *WasmModule) print(writer FormattingWriter) {
 	for _, a := range m.assertReturn {
 		writer.PrintfIndent(m.indent, "(assert_return %s)\n", a)
 	}
+	for _, a := range m.invoke {
+		writer.PrintfIndent(m.indent, "%s\n", a)
+	}
 }
 
-func astNameToWASM(astName string) string {
-	return "$" + astName
+func astNameToWASM(astName string, s *WasmScope) string {
+	if s == nil {
+		return "$" + astName
+	} else {
+		return fmt.Sprintf("$%s_%s", s.name, astName)
+	}
 }
 
 func positionString(pos token.Pos, fset *token.FileSet) string {

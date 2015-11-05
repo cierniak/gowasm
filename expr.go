@@ -58,9 +58,10 @@ type WasmValue struct {
 // Expression list that may introduce new locals, e.g. block or loop.
 type WasmScope struct {
 	expressions []WasmExpression
-	locals      []*WasmLocal
 	f           *WasmFunc
 	indent      int
+	n           int
+	name        string
 }
 
 // ( block <expr>+ )
@@ -91,10 +92,10 @@ type WasmIf struct {
 // ( loop <var> <var>? <expr>* ) ;; = (label <var> (loop (block <var>? <expr>*)))
 type WasmLoop struct {
 	WasmExprBase
-	cond        WasmExpression
-	expressions []WasmExpression
-	body        *WasmBlock
-	stmt        *ast.ForStmt
+	scope *WasmScope
+	cond  WasmExpression
+	body  *WasmBlock
+	stmt  *ast.ForStmt
 }
 
 // ( break <var> <expr>? )
@@ -227,14 +228,27 @@ func (f *WasmFunc) parseArgs(args []ast.Expr, indent int) []WasmExpression {
 	return result
 }
 
+func (f *WasmFunc) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, indent int) (WasmExpression, error) {
+	fmt.Printf("parseConvertExpr, ty='%s'\n", typ)
+	ty, err := f.module.parseAstType(fun)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse type name in type conversion: %v", err)
+	}
+	return f.parseExpr(v, ty, indent)
+}
+
 func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
 	switch fun := call.Fun.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, f.fset))
 	case *ast.Ident:
+		ty, _, err := f.module.convertAstTypeToWasmType(fun)
+		if err == nil && len(call.Args) == 1 {
+			return f.parseConvertExpr(ty, fun, call.Args[0], indent)
+		}
 		args := f.parseArgs(call.Args, indent+1)
 		c := &WasmCall{
-			name: astNameToWASM(fun.Name),
+			name: astNameToWASM(fun.Name, nil),
 			args: args,
 			call: call,
 		}
@@ -360,8 +374,8 @@ func (l *WasmLoop) getType() *WasmType {
 }
 
 func (l *WasmLoop) print(writer FormattingWriter) {
-	writer.PrintfIndent(l.getIndent(), "(loop\n")
-	for _, e := range l.expressions {
+	writer.PrintfIndent(l.getIndent(), "(loop ;; scope %d\n", l.scope.n)
+	for _, e := range l.scope.expressions {
 		e.print(writer)
 	}
 	writer.PrintfIndent(l.getIndent(), ") ;; loop\n")

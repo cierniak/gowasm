@@ -11,16 +11,18 @@ import (
 
 // func:   ( func <name>? <type>? <param>* <result>? <local>* <expr>* )
 type WasmFunc struct {
-	funcDecl *ast.FuncDecl
-	fset     *token.FileSet
-	module   *WasmModule
-	indent   int
-	name     string
-	origName string
-	namePos  token.Pos
-	params   []*WasmParam
-	result   *WasmResult
-	scope    *WasmScope
+	funcDecl  *ast.FuncDecl
+	fset      *token.FileSet
+	module    *WasmModule
+	indent    int
+	name      string
+	origName  string
+	namePos   token.Pos
+	params    []*WasmParam
+	result    *WasmResult
+	locals    []*WasmLocal
+	scope     *WasmScope
+	nextScope int
 }
 
 // param:  ( param <type>* ) | ( param <name> <type> )
@@ -57,9 +59,10 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 		module:   m,
 		indent:   indent,
 		params:   make([]*WasmParam, 0, 10),
+		locals:   make([]*WasmLocal, 0, 10),
 	}
 	if ident := funcDecl.Name; ident != nil {
-		f.name = astNameToWASM(ident.Name)
+		f.name = astNameToWASM(ident.Name, nil)
 		f.origName = ident.Name
 		f.namePos = ident.NamePos
 	}
@@ -73,7 +76,7 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 func (f *WasmFunc) parseType(t *ast.FuncType) {
 	if t.Params.List != nil {
 		for _, field := range t.Params.List {
-			paramType, err := f.module.parseAstType(field.Type, f.fset)
+			paramType, err := f.module.parseAstType(field.Type)
 			if err != nil {
 				panic(err)
 			}
@@ -81,7 +84,7 @@ func (f *WasmFunc) parseType(t *ast.FuncType) {
 				p := &WasmParam{
 					astIdent: name,
 					astType:  field.Type,
-					name:     astNameToWASM(name.Name),
+					name:     astNameToWASM(name.Name, nil),
 					t:        paramType,
 				}
 				f.module.variables[name.Obj] = p
@@ -96,7 +99,7 @@ func (f *WasmFunc) parseType(t *ast.FuncType) {
 			panic(err)
 		}
 		field := t.Results.List[0]
-		paramType, err := f.module.parseAstType(field.Type, f.fset)
+		paramType, err := f.module.parseAstType(field.Type)
 		if err != nil {
 			panic(err)
 		}
@@ -118,7 +121,7 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 	}
 	writer.Printf("\n")
 	bodyIndent := f.indent + 1
-	for _, v := range f.scope.locals {
+	for _, v := range f.locals {
 		writer.PrintfIndent(bodyIndent, "")
 		v.print(writer)
 		writer.Printf("\n")

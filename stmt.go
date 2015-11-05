@@ -7,45 +7,55 @@ import (
 )
 
 func (f *WasmFunc) parseFuncBody(body *ast.BlockStmt) {
-	scope, err := f.parseStmtList(body, f.indent+1)
+	scope, err := f.parseStmtList(body.List, f.indent+1, nil)
 	if err != nil {
 		panic(err)
 	}
 	f.scope = scope
 }
 
-func (f *WasmFunc) parseStmtList(body *ast.BlockStmt, indent int) (*WasmScope, error) {
-	s := &WasmScope{
-		f:           f,
-		indent:      indent,
-		locals:      make([]*WasmLocal, 0, 10),
-		expressions: make([]WasmExpression, 0, 10),
-	}
-	for _, stmt := range body.List {
-		var err error
-		var expr WasmExpression
-		switch stmt := stmt.(type) {
-		default:
-			panic(fmt.Errorf("unimplemented statement: %v", stmt))
-		case *ast.AssignStmt:
-			expr, err = s.parseAssignStmt(stmt, indent)
-		case *ast.ExprStmt:
-			expr, err = f.parseExprStmt(stmt, indent)
-		case *ast.ForStmt:
-			expr, err = f.parseForStmt(stmt, indent)
-		case *ast.IfStmt:
-			expr, err = f.parseIfStmt(stmt, indent)
-		case *ast.ReturnStmt:
-			expr, err = f.parseReturnStmt(stmt, indent)
-		}
+func (s *WasmScope) parseStmtList(stmts []ast.Stmt, indent int) error {
+	for _, stmt := range stmts {
+		expr, err := s.parseStmt(stmt, indent)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if expr != nil {
-			s.expressions = append(s.expressions, expr)
-		}
+		s.expressions = append(s.expressions, expr)
 	}
-	return s, nil
+	return nil
+}
+
+func (f *WasmFunc) parseStmtList(stmts []ast.Stmt, indent int, optionalScope *WasmScope) (*WasmScope, error) {
+	s := optionalScope
+	if s == nil {
+		s = &WasmScope{
+			f:           f,
+			indent:      indent,
+			expressions: make([]WasmExpression, 0, 10),
+			n:           f.nextScope,
+		}
+		s.name = fmt.Sprintf("scope%d", s.n)
+		f.nextScope++
+	}
+	err := s.parseStmtList(stmts, indent)
+	return s, err
+}
+
+func (s *WasmScope) parseStmt(stmt ast.Stmt, indent int) (WasmExpression, error) {
+	switch stmt := stmt.(type) {
+	default:
+		panic(fmt.Errorf("unimplemented statement: %v", stmt))
+	case *ast.AssignStmt:
+		return s.parseAssignStmt(stmt, indent)
+	case *ast.ExprStmt:
+		return s.f.parseExprStmt(stmt, indent)
+	case *ast.ForStmt:
+		return s.f.parseForStmt(stmt, indent)
+	case *ast.IfStmt:
+		return s.f.parseIfStmt(stmt, indent)
+	case *ast.ReturnStmt:
+		return s.f.parseReturnStmt(stmt, indent)
+	}
 }
 
 func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
@@ -71,17 +81,17 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 	case *ast.Ident:
 		v := &WasmLocal{
 			astIdent: lhs,
-			name:     astNameToWASM(lhs.Name),
+			name:     astNameToWASM(lhs.Name, s),
 			t:        ty,
 		}
 		s.f.module.variables[lhs.Obj] = v
-		s.locals = append(s.locals, v)
+		s.f.locals = append(s.f.locals, v)
 		sl := &WasmSetLocal{
 			lhs:  v,
 			rhs:  rhs,
 			stmt: stmt,
 		}
-		sl.setIndent(indent + 1)
+		sl.setIndent(indent)
 		return sl, nil
 	}
 }
@@ -95,20 +105,36 @@ func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpression
 }
 
 func (f *WasmFunc) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression, error) {
-	l := &WasmLoop{
-		expressions: make([]WasmExpression, 0, 10),
-		stmt:        stmt,
+	var scope *WasmScope
+	var err error
+	if stmt.Init != nil {
+		init := []ast.Stmt{stmt.Init}
+		scope, err = f.parseStmtList(init, indent+1, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error in the init part of a loop: %v", err)
+		}
 	}
-	l.setIndent(indent)
+
+	scope, err = f.parseStmtList(stmt.Body.List, indent+1, scope)
+	if err != nil {
+		return nil, fmt.Errorf("error in the body of a loop: %v", err)
+	}
+
 	b := &WasmBreak{}
 	b.setIndent(indent + 1)
-	l.expressions = append(l.expressions, b)
+	scope.expressions = append(scope.expressions, b)
+
+	l := &WasmLoop{
+		stmt:  stmt,
+		scope: scope,
+	}
+	l.setIndent(indent)
 	// TODO: Finish implementing the loop.
 	return l, nil
 }
 
 func (f *WasmFunc) parseBlockStmt(stmt *ast.BlockStmt, indent int) (*WasmBlock, error) {
-	scope, err := f.parseStmtList(stmt, f.indent+1)
+	scope, err := f.parseStmtList(stmt.List, f.indent+1, nil)
 	if err != nil {
 		return nil, err
 	}
