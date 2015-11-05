@@ -189,11 +189,21 @@ func (f *WasmFunc) parseIncDecStmt(stmt *ast.IncDecStmt, indent int) (WasmExpres
 		if !ok {
 			return nil, fmt.Errorf("undefined variable '%s' in IncDecStmt at %s", x.Obj.Name, positionString(x.Pos(), f.fset))
 		}
-		rhs, err := f.parseIdent(x, indent+1)
+		vRHS, err := f.parseIdent(x, indent+1)
 		if err != nil {
 			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
 		}
-		// TODO: The RHS must be an add or sub of constant 1.
+
+		inc, err := f.createLiteral("1", v.getType(), indent+1)
+		if err != nil {
+			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
+		}
+
+		rhs, err := f.createBinaryExpr(vRHS, inc, binOpMapping[stmt.Tok], v.getType(), indent)
+		if err != nil {
+			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
+		}
+
 		sl := &WasmSetLocal{
 			lhs:  v,
 			rhs:  rhs,

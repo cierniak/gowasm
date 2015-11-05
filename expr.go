@@ -31,6 +31,8 @@ var binOpMapping = [...]BinOp{
 	token.MUL: binOpMul,
 	token.QUO: binOpDiv,
 	token.EQL: binOpEq,
+	token.INC: binOpAdd,
+	token.DEC: binOpSub,
 }
 
 type WasmExpression interface {
@@ -51,8 +53,8 @@ type WasmExprBase struct {
 // value: <int> | <float>
 type WasmValue struct {
 	WasmExprBase
-	astBasicLiteral *ast.BasicLit
-	t               *WasmType
+	value string
+	t     *WasmType
 }
 
 // Expression list that may introduce new locals, e.g. block or loop.
@@ -132,11 +134,10 @@ type WasmSetLocal struct {
 // ( <type>.<binop> <expr> <expr> )
 type WasmBinOp struct {
 	WasmExprBase
-	tok token.Token
-	op  BinOp
-	x   WasmExpression
-	y   WasmExpression
-	t   *WasmType
+	op BinOp
+	x  WasmExpression
+	y  WasmExpression
+	t  *WasmType
 }
 
 func (e *WasmExprBase) getIndent() int {
@@ -172,16 +173,23 @@ func (f *WasmFunc) parseExpr(expr ast.Expr, typeHint *WasmType, indent int) (Was
 	}
 }
 
+func (f *WasmFunc) createLiteral(value string, ty *WasmType, indent int) (WasmExpression, error) {
+	if ty == nil {
+		return nil, fmt.Errorf("not implemented: literal without type: %v", value)
+	}
+	val := &WasmValue{
+		value: value,
+		t:     ty,
+	}
+	val.setIndent(indent)
+	return val, nil
+}
+
 func (f *WasmFunc) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType, indent int) (WasmExpression, error) {
 	if typeHint == nil {
 		return nil, fmt.Errorf("not implemented: BasicLit without type hint: %v", lit.Value)
 	}
-	val := &WasmValue{
-		astBasicLiteral: lit,
-		t:               typeHint,
-	}
-	val.setIndent(indent)
-	return val, nil
+	return f.createLiteral(lit.Value, typeHint, indent)
 }
 
 func isSupportedBinOp(tok token.Token) bool {
@@ -190,6 +198,17 @@ func isSupportedBinOp(tok token.Token) bool {
 	}
 	t := binOpMapping[tok]
 	return int(t) > 0
+}
+
+func (f *WasmFunc) createBinaryExpr(x, y WasmExpression, op BinOp, ty *WasmType, indent int) (*WasmBinOp, error) {
+	b := &WasmBinOp{
+		op: op,
+		t:  ty,
+		x:  x,
+		y:  y,
+	}
+	b.setIndent(indent)
+	return b, nil
 }
 
 func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType, indent int) (WasmExpression, error) {
@@ -205,15 +224,7 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType, ind
 		return nil, fmt.Errorf("unsupported binary op: %v", expr.Op)
 	}
 	xt := x.getType()
-	b := &WasmBinOp{
-		tok: expr.Op,
-		op:  binOpMapping[expr.Op],
-		t:   xt,
-		x:   x,
-		y:   y,
-	}
-	b.setIndent(indent)
-	return b, nil
+	return f.createBinaryExpr(x, y, binOpMapping[expr.Op], xt, indent)
 }
 
 func (f *WasmFunc) parseArgs(args []ast.Expr, indent int) []WasmExpression {
@@ -282,7 +293,7 @@ func (f *WasmFunc) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType, indent i
 func (v *WasmValue) print(writer FormattingWriter) {
 	writer.PrintfIndent(v.getIndent(), "(")
 	v.t.print(writer)
-	writer.Printf(".const %s)\n", v.astBasicLiteral.Value)
+	writer.Printf(".const %s)\n", v.value)
 }
 
 func (v *WasmValue) getType() *WasmType {
