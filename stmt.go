@@ -53,6 +53,8 @@ func (s *WasmScope) parseStmt(stmt ast.Stmt, indent int) (WasmExpression, error)
 		return s.f.parseForStmt(stmt, indent)
 	case *ast.IfStmt:
 		return s.f.parseIfStmt(stmt, indent)
+	case *ast.IncDecStmt:
+		return s.f.parseIncDecStmt(stmt, indent)
 	case *ast.ReturnStmt:
 		return s.f.parseReturnStmt(stmt, indent)
 	}
@@ -120,6 +122,14 @@ func (f *WasmFunc) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression, 
 		return nil, fmt.Errorf("error in the body of a loop: %v", err)
 	}
 
+	if stmt.Post != nil {
+		post := []ast.Stmt{stmt.Post}
+		scope, err = f.parseStmtList(post, indent+1, scope)
+		if err != nil {
+			return nil, fmt.Errorf("error in the post part of a loop: %v", err)
+		}
+	}
+
 	b := &WasmBreak{}
 	b.setIndent(indent + 1)
 	scope.expressions = append(scope.expressions, b)
@@ -168,6 +178,31 @@ func (f *WasmFunc) parseIfStmt(stmt *ast.IfStmt, indent int) (WasmExpression, er
 	}
 	i.setIndent(indent)
 	return i, nil
+}
+
+func (f *WasmFunc) parseIncDecStmt(stmt *ast.IncDecStmt, indent int) (WasmExpression, error) {
+	switch x := stmt.X.(type) {
+	default:
+		return nil, fmt.Errorf("unimplemented expr in IncDecStmt: %v at %s", x, positionString(x.Pos(), f.fset))
+	case *ast.Ident:
+		v, ok := f.module.variables[x.Obj]
+		if !ok {
+			return nil, fmt.Errorf("undefined variable '%s' in IncDecStmt at %s", x.Obj.Name, positionString(x.Pos(), f.fset))
+		}
+		rhs, err := f.parseIdent(x, indent+1)
+		if err != nil {
+			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
+		}
+		// TODO: The RHS must be an add or sub of constant 1.
+		sl := &WasmSetLocal{
+			lhs:  v,
+			rhs:  rhs,
+			stmt: stmt,
+		}
+		sl.setIndent(indent)
+		return sl, nil
+	}
+	return nil, fmt.Errorf("not implemented: IncDecStmt")
 }
 
 func (f *WasmFunc) parseReturnStmt(stmt *ast.ReturnStmt, indent int) (WasmExpression, error) {

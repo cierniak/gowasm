@@ -126,7 +126,7 @@ type WasmSetLocal struct {
 	WasmExprBase
 	lhs  WasmVariable
 	rhs  WasmExpression
-	stmt *ast.AssignStmt
+	stmt ast.Stmt
 }
 
 // ( <type>.<binop> <expr> <expr> )
@@ -229,7 +229,6 @@ func (f *WasmFunc) parseArgs(args []ast.Expr, indent int) []WasmExpression {
 }
 
 func (f *WasmFunc) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, indent int) (WasmExpression, error) {
-	fmt.Printf("parseConvertExpr, ty='%s'\n", typ)
 	ty, err := f.module.parseAstType(fun)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse type name in type conversion: %v", err)
