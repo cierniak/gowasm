@@ -66,24 +66,11 @@ func (f *WasmFunc) createNop(indent int) *WasmNop {
 	return n
 }
 
-func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
-	if len(stmt.Lhs) != 1 || len(stmt.Rhs) != 1 {
-		return nil, fmt.Errorf("unimplemented multi-value AssignStmt")
+func (s *WasmScope) parseDefineAssignLHS(lhs []ast.Expr, ty *WasmType, indent int) (WasmVariable, error) {
+	if len(lhs) != 1 {
+		return nil, fmt.Errorf("unimplemented multi-value LHS in AssignStmt")
 	}
-	if stmt.Tok != token.DEFINE {
-		// TODO: support other assignments
-		return nil, fmt.Errorf("unimplemented AssignStmt, token='%v'", stmt.Tok)
-	}
-	rhs, err := s.f.parseExpr(stmt.Rhs[0], nil, indent+1)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing RHS of an assignment: %v", err)
-	}
-	ty := rhs.getType()
-	if ty == nil {
-		return nil, fmt.Errorf("error parsing RHS of an assignment: type is nil")
-	}
-
-	switch lhs := stmt.Lhs[0].(type) {
+	switch lhs := lhs[0].(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
 	case *ast.Ident:
@@ -94,14 +81,60 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 		}
 		s.f.module.variables[lhs.Obj] = v
 		s.f.locals = append(s.f.locals, v)
-		sl := &WasmSetLocal{
-			lhs:  v,
-			rhs:  rhs,
-			stmt: stmt,
-		}
-		sl.setIndent(indent)
-		return sl, nil
+		return v, nil
 	}
+}
+
+func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty *WasmType, indent int) (WasmVariable, error) {
+	if len(lhs) != 1 {
+		return nil, fmt.Errorf("unimplemented multi-value LHS in AssignStmt")
+	}
+	switch lhs := lhs[0].(type) {
+	default:
+		return nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
+	case *ast.Ident:
+		v, ok := s.f.module.variables[lhs.Obj]
+		if !ok {
+			return nil, fmt.Errorf("couldn't find variable '%s' on the LHS of an assignment", lhs.Name)
+		}
+		return v, nil
+	}
+}
+
+func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
+	if len(stmt.Lhs) != 1 || len(stmt.Rhs) != 1 {
+		return nil, fmt.Errorf("unimplemented multi-value AssignStmt")
+	}
+
+	var err error
+	rhs, err := s.f.parseExpr(stmt.Rhs[0], nil, indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing RHS of an assignment: %v", err)
+	}
+	ty := rhs.getType()
+	if ty == nil {
+		return nil, fmt.Errorf("error parsing RHS of an assignment: type is nil")
+	}
+
+	var v WasmVariable
+	switch stmt.Tok {
+	default:
+		return nil, fmt.Errorf("unimplemented AssignStmt, token='%v'", stmt.Tok)
+	case token.ASSIGN:
+		v, err = s.parseAssignLHS(stmt.Lhs, ty, indent)
+	case token.DEFINE:
+		v, err = s.parseDefineAssignLHS(stmt.Lhs, ty, indent)
+	}
+	if err != nil {
+		return nil, err
+	}
+	sl := &WasmSetLocal{
+		lhs:  v,
+		rhs:  rhs,
+		stmt: stmt,
+	}
+	sl.setIndent(indent)
+	return sl, nil
 }
 
 func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpression, error) {
