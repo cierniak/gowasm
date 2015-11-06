@@ -7,6 +7,12 @@ func Add(a, b int32) int32 {
 	return c
 }
 
+//wasm:assert_return (invoke "Inc" (i32.const 10)) (i32.const 11)
+func Inc(n int32) int32 {
+	n++
+	return n
+}
+
 //wasm:assert_return (invoke "Expr1" (i32.const 10) (i32.const 3)) (i32.const 16)
 func Expr1(a, b int32) int32 {
 	return 2*(a-b) + two()

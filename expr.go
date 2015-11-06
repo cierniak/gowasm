@@ -91,7 +91,7 @@ type WasmNop struct {
 type WasmBlock struct {
 	WasmExprBase
 	scope *WasmScope
-	stmt  *ast.BlockStmt
+	stmt  ast.Stmt
 }
 
 // ( return <expr>? )

@@ -25,17 +25,22 @@ func (s *WasmScope) parseStmtList(stmts []ast.Stmt, indent int) error {
 	return nil
 }
 
+func (f *WasmFunc) createScope(indent int) *WasmScope {
+	s := &WasmScope{
+		f:           f,
+		indent:      indent,
+		expressions: make([]WasmExpression, 0, 10),
+		n:           f.nextScope,
+	}
+	s.name = fmt.Sprintf("scope%d", s.n)
+	f.nextScope++
+	return s
+}
+
 func (f *WasmFunc) parseStmtList(stmts []ast.Stmt, indent int, optionalScope *WasmScope) (*WasmScope, error) {
 	s := optionalScope
 	if s == nil {
-		s = &WasmScope{
-			f:           f,
-			indent:      indent,
-			expressions: make([]WasmExpression, 0, 10),
-			n:           f.nextScope,
-		}
-		s.name = fmt.Sprintf("scope%d", s.n)
-		f.nextScope++
+		s = f.createScope(indent)
 	}
 	err := s.parseStmtList(stmts, indent)
 	return s, err
@@ -146,50 +151,64 @@ func (f *WasmFunc) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpression
 }
 
 func (f *WasmFunc) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression, error) {
-	var scope *WasmScope
+	var outerScope *WasmScope
 	var err error
 	if stmt.Init != nil {
 		init := []ast.Stmt{stmt.Init}
-		scope, err = f.parseStmtList(init, indent+1, nil)
+		outerScope, err = f.parseStmtList(init, indent+1, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error in the init part of a loop: %v", err)
 		}
 	}
 
-	cond, err := f.parseExpr(stmt.Cond, nil, indent+2)
+	cond, err := f.parseExpr(stmt.Cond, nil, indent+3)
 	if err != nil {
 		return nil, fmt.Errorf("error in the condition of a loop: %v", err)
 	}
 	b := &WasmBreak{}
-	b.setIndent(indent + 2)
-	ifStmt, err := f.createIf(cond, f.createNop(indent+2), b, indent+1)
+	b.setIndent(indent + 3)
+	ifStmt, err := f.createIf(cond, f.createNop(indent+3), b, indent+2)
 	if err != nil {
 		return nil, fmt.Errorf("error in the condition stmt of a loop: %v", err)
 	}
+	scope := f.createScope(indent)
 	scope.expressions = append(scope.expressions, ifStmt)
 
-	scope, err = f.parseStmtList(stmt.Body.List, indent+1, scope)
+	scope, err = f.parseStmtList(stmt.Body.List, indent+2, scope)
 	if err != nil {
 		return nil, fmt.Errorf("error in the body of a loop: %v", err)
 	}
 
 	if stmt.Post != nil {
 		post := []ast.Stmt{stmt.Post}
-		scope, err = f.parseStmtList(post, indent+1, scope)
+		scope, err = f.parseStmtList(post, indent+2, scope)
 		if err != nil {
 			return nil, fmt.Errorf("error in the post part of a loop: %v", err)
 		}
 	}
 
-	// TODO: Remove this extra break.
-	scope.expressions = append(scope.expressions, b)
-
 	l := &WasmLoop{
 		stmt:  stmt,
 		scope: scope,
 	}
-	l.setIndent(indent)
-	return l, nil
+	l.setIndent(indent + 1)
+
+	if outerScope == nil {
+		return nil, fmt.Errorf("loops with no init are not implemented")
+	}
+	outerScope.expressions = append(outerScope.expressions, l)
+	outerBlock := f.createBlock(outerScope, stmt, indent)
+
+	return outerBlock, nil
+}
+
+func (f *WasmFunc) createBlock(scope *WasmScope, stmt ast.Stmt, indent int) *WasmBlock {
+	b := &WasmBlock{
+		scope: scope,
+		stmt:  stmt,
+	}
+	b.setIndent(indent)
+	return b
 }
 
 func (f *WasmFunc) parseBlockStmt(stmt *ast.BlockStmt, indent int) (*WasmBlock, error) {
@@ -197,12 +216,7 @@ func (f *WasmFunc) parseBlockStmt(stmt *ast.BlockStmt, indent int) (*WasmBlock, 
 	if err != nil {
 		return nil, err
 	}
-	b := &WasmBlock{
-		scope: scope,
-		stmt:  stmt,
-	}
-	b.setIndent(indent)
-	return b, nil
+	return f.createBlock(scope, stmt, indent), nil
 }
 
 func (f *WasmFunc) createIf(cond, body, bodyElse WasmExpression, indent int) (*WasmIf, error) {
