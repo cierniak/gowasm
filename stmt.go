@@ -6,21 +6,9 @@ import (
 	"go/token"
 )
 
-func (s *WasmScope) parseStmtList(stmts []ast.Stmt, indent int) error {
-	for _, stmt := range stmts {
-		expr, err := s.parseStmt(stmt, indent)
-		if err != nil {
-			return err
-		}
-		s.expressions = append(s.expressions, expr)
-	}
-	return nil
-}
-
-func (f *WasmFunc) createScope(indent int) *WasmScope {
+func (f *WasmFunc) createScope() *WasmScope {
 	s := &WasmScope{
 		f:           f,
-		indent:      indent,
 		expressions: make([]WasmExpression, 0, 10),
 		n:           f.nextScope,
 	}
@@ -29,13 +17,15 @@ func (f *WasmFunc) createScope(indent int) *WasmScope {
 	return s
 }
 
-func (f *WasmFunc) parseStmtList(stmts []ast.Stmt, indent int, optionalScope *WasmScope) (*WasmScope, error) {
-	scope := optionalScope
-	if scope == nil {
-		scope = f.createScope(indent)
+func (s *WasmScope) parseStatementList(stmts []ast.Stmt, indent int) error {
+	for _, stmt := range stmts {
+		expr, err := s.parseStmt(stmt, indent)
+		if err != nil {
+			return err
+		}
+		s.expressions = append(s.expressions, expr)
 	}
-	err := scope.parseStmtList(stmts, indent)
-	return scope, err
+	return nil
 }
 
 func (s *WasmScope) parseStmt(stmt ast.Stmt, indent int) (WasmExpression, error) {
@@ -143,11 +133,11 @@ func (s *WasmScope) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpressio
 }
 
 func (s *WasmScope) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression, error) {
-	var outerScope *WasmScope
+	outerScope := s.f.createScope()
 	var err error
 	if stmt.Init != nil {
 		init := []ast.Stmt{stmt.Init}
-		outerScope, err = s.f.parseStmtList(init, indent+1, nil)
+		err = outerScope.parseStatementList(init, indent+1)
 		if err != nil {
 			return nil, fmt.Errorf("error in the init part of a loop: %v", err)
 		}
@@ -163,17 +153,17 @@ func (s *WasmScope) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression,
 	if err != nil {
 		return nil, fmt.Errorf("error in the condition stmt of a loop: %v", err)
 	}
-	scope := s.f.createScope(indent)
+	scope := s.f.createScope()
 	scope.expressions = append(scope.expressions, ifStmt)
 
-	scope, err = s.f.parseStmtList(stmt.Body.List, indent+2, scope)
+	err = scope.parseStatementList(stmt.Body.List, indent+2)
 	if err != nil {
 		return nil, fmt.Errorf("error in the body of a loop: %v", err)
 	}
 
 	if stmt.Post != nil {
 		post := []ast.Stmt{stmt.Post}
-		scope, err = s.f.parseStmtList(post, indent+2, scope)
+		err = scope.parseStatementList(post, indent+2)
 		if err != nil {
 			return nil, fmt.Errorf("error in the post part of a loop: %v", err)
 		}
@@ -204,7 +194,8 @@ func (s *WasmScope) createBlock(scope *WasmScope, stmt ast.Stmt, indent int) *Wa
 }
 
 func (s *WasmScope) parseBlockStmt(stmt *ast.BlockStmt, indent int) (*WasmBlock, error) {
-	scope, err := s.f.parseStmtList(stmt.List, indent+1, nil)
+	scope := s.f.createScope()
+	err := scope.parseStatementList(stmt.List, indent+1)
 	if err != nil {
 		return nil, err
 	}

@@ -76,7 +76,6 @@ type WasmValue struct {
 type WasmScope struct {
 	expressions []WasmExpression
 	f           *WasmFunc
-	indent      int
 	n           int
 	name        string
 }
