@@ -72,60 +72,6 @@ type WasmValue struct {
 	t     *WasmType
 }
 
-// Expression list that may introduce new locals, e.g. block or loop.
-type WasmScope struct {
-	expressions []WasmExpression
-	f           *WasmFunc
-	n           int
-	name        string
-}
-
-// ( nop )
-type WasmNop struct {
-	WasmExprBase
-}
-
-// ( block <expr>+ )
-// ( block <var> <expr>+ ) ;; = (label <var> (block <expr>+))
-type WasmBlock struct {
-	WasmExprBase
-	scope *WasmScope
-	stmt  ast.Stmt
-}
-
-// ( return <expr>? )
-type WasmReturn struct {
-	WasmExprBase
-	value WasmExpression
-	stmt  *ast.ReturnStmt
-}
-
-// ( if <expr> <expr> <expr> )
-// ( if <expr> <expr> )
-type WasmIf struct {
-	WasmExprBase
-	cond     WasmExpression
-	body     WasmExpression
-	bodyElse WasmExpression
-	stmt     *ast.IfStmt
-}
-
-// ( loop <expr>* ) ;; = (loop (block <expr>*))
-// ( loop <var> <var>? <expr>* ) ;; = (label <var> (loop (block <var>? <expr>*)))
-type WasmLoop struct {
-	WasmExprBase
-	scope *WasmScope
-	cond  WasmExpression
-	body  *WasmBlock
-	stmt  *ast.ForStmt
-}
-
-// ( break <var> <expr>? )
-type WasmBreak struct {
-	WasmExprBase
-	v int
-}
-
 // ( call <var> <expr>* )
 type WasmCall struct {
 	WasmExprBase
@@ -141,14 +87,6 @@ type WasmGetLocal struct {
 	def      WasmVariable
 	f        *WasmFunc
 	t        *WasmType
-}
-
-// ( set_local <var> <expr> )
-type WasmSetLocal struct {
-	WasmExprBase
-	lhs  WasmVariable
-	rhs  WasmExpression
-	stmt ast.Stmt
 }
 
 // ( <type>.<binop> <expr> <expr> )
@@ -310,18 +248,6 @@ func (f *WasmFunc) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType, indent i
 	return f.parseExpr(p.X, typeHint, indent)
 }
 
-func (n *WasmNop) getType() *WasmType {
-	return nil
-}
-
-func (n *WasmNop) print(writer FormattingWriter) {
-	writer.PrintfIndent(n.getIndent(), "(nop)\n")
-}
-
-func (n *WasmNop) getNode() ast.Node {
-	return nil
-}
-
 func (v *WasmValue) print(writer FormattingWriter) {
 	writer.PrintfIndent(v.getIndent(), "(")
 	v.t.print(writer)
@@ -365,102 +291,6 @@ func (g *WasmGetLocal) getNode() ast.Node {
 	return nil
 }
 
-func (r *WasmReturn) getType() *WasmType {
-	if r.value == nil {
-		return nil
-	} else {
-		return r.value.getType()
-	}
-}
-
-func (r *WasmReturn) print(writer FormattingWriter) {
-	writer.PrintfIndent(r.getIndent(), "(return\n")
-	if r.value != nil {
-		r.value.print(writer)
-	}
-	writer.PrintfIndent(r.getIndent(), ") ;; return\n")
-}
-
-func (r *WasmReturn) getNode() ast.Node {
-	if r.stmt == nil {
-		return nil
-	} else {
-		return r.stmt
-	}
-}
-
-func (i *WasmIf) getType() *WasmType {
-	return nil
-}
-
-func (i *WasmIf) print(writer FormattingWriter) {
-	writer.PrintfIndent(i.getIndent(), "(if\n")
-	i.cond.print(writer)
-	i.body.print(writer)
-	if i.bodyElse != nil {
-		i.bodyElse.print(writer)
-	}
-	writer.PrintfIndent(i.getIndent(), ") ;; if\n")
-}
-
-func (i *WasmIf) getNode() ast.Node {
-	if i.stmt == nil {
-		return nil
-	} else {
-		return i.stmt
-	}
-}
-
-func (l *WasmLoop) getType() *WasmType {
-	return nil
-}
-
-func (l *WasmLoop) print(writer FormattingWriter) {
-	writer.PrintfIndent(l.getIndent(), "(loop ;; scope %d\n", l.scope.n)
-	for _, e := range l.scope.expressions {
-		e.print(writer)
-	}
-	writer.PrintfIndent(l.getIndent(), ") ;; loop\n")
-}
-
-func (l *WasmLoop) getNode() ast.Node {
-	if l.stmt == nil {
-		return nil
-	} else {
-		return l.stmt
-	}
-}
-
-func (b *WasmBreak) getType() *WasmType {
-	return nil
-}
-
-func (b *WasmBreak) print(writer FormattingWriter) {
-	writer.PrintfIndent(b.getIndent(), "(break %d)\n", b.v)
-}
-
-func (b *WasmBreak) getNode() ast.Node {
-	return nil
-}
-
-func (s *WasmSetLocal) print(writer FormattingWriter) {
-	writer.PrintfIndent(s.getIndent(), "(set_local %s\n", s.lhs.getName())
-	s.rhs.print(writer)
-	writer.PrintfIndent(s.getIndent(), ") ;; set_local %s\n", s.lhs.getName())
-}
-
-func (s *WasmSetLocal) getType() *WasmType {
-	return s.lhs.getType()
-}
-
-func (s *WasmSetLocal) getNode() ast.Node {
-	if s.stmt == nil {
-		return nil
-	} else {
-		return s.stmt
-	}
-}
-
 func (p *WasmCall) getType() *WasmType {
 	// TODO
 	return nil
@@ -479,25 +309,5 @@ func (c *WasmCall) getNode() ast.Node {
 		return nil
 	} else {
 		return c.call
-	}
-}
-
-func (b *WasmBlock) getType() *WasmType {
-	return nil
-}
-
-func (b *WasmBlock) print(writer FormattingWriter) {
-	writer.PrintfIndent(b.getIndent(), "(block\n")
-	for _, expr := range b.scope.expressions {
-		expr.print(writer)
-	}
-	writer.PrintfIndent(b.getIndent(), ") ;; block\n")
-}
-
-func (b *WasmBlock) getNode() ast.Node {
-	if b.stmt == nil {
-		return nil
-	} else {
-		return b.stmt
 	}
 }
