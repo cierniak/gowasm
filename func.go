@@ -69,7 +69,7 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 	if funcDecl.Type != nil {
 		f.parseType(funcDecl.Type)
 	}
-	f.scope = f.createScope()
+	f.scope = f.createScope(fmt.Sprintf("function_%s", f.origName))
 	err := f.scope.parseStatementList(funcDecl.Body.List, f.indent+1)
 	return f, err
 }
@@ -125,6 +125,8 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 	for _, v := range f.locals {
 		writer.PrintfIndent(bodyIndent, "")
 		v.print(writer)
+	}
+	if len(f.locals) > 0 {
 		writer.Printf("\n")
 	}
 	for i, expr := range f.scope.expressions {

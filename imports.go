@@ -89,7 +89,7 @@ func (c *WasmCallImport) print(writer FormattingWriter) {
 	for _, arg := range c.args {
 		arg.print(writer)
 	}
-	writer.PrintfIndent(c.getIndent(), ") ;;\n")
+	writer.PrintfIndent(c.getIndent(), ")\n")
 }
 
 func (c *WasmCallImport) getNode() ast.Node {

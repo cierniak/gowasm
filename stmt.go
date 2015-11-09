@@ -57,7 +57,8 @@ type WasmLoop struct {
 // ( break <var> <expr>? )
 type WasmBreak struct {
 	WasmExprBase
-	v int
+	scope *WasmScope
+	v     int
 }
 
 // ( set_local <var> <expr> )
@@ -68,13 +69,16 @@ type WasmSetLocal struct {
 	stmt ast.Stmt
 }
 
-func (f *WasmFunc) createScope() *WasmScope {
+func (f *WasmFunc) createScope(prefix string) *WasmScope {
+	if prefix == "" {
+		prefix = "scope"
+	}
 	s := &WasmScope{
 		f:           f,
 		expressions: make([]WasmExpression, 0, 10),
 		n:           f.nextScope,
 	}
-	s.name = fmt.Sprintf("scope%d", s.n)
+	s.name = fmt.Sprintf("%s%d", prefix, s.n)
 	f.nextScope++
 	return s
 }
@@ -195,7 +199,7 @@ func (s *WasmScope) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpressio
 }
 
 func (s *WasmScope) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression, error) {
-	outerScope := s.f.createScope()
+	outerScope := s.f.createScope("loop_block")
 	var err error
 	if stmt.Init != nil {
 		init := []ast.Stmt{stmt.Init}
@@ -209,13 +213,15 @@ func (s *WasmScope) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression,
 	if err != nil {
 		return nil, fmt.Errorf("error in the condition of a loop: %v", err)
 	}
-	b := &WasmBreak{}
+	scope := s.f.createScope("loop")
+	b := &WasmBreak{
+		scope: scope,
+	}
 	b.setIndent(indent + 3)
 	ifStmt, err := s.createIf(cond, s.createNop(indent+3), b, indent+2)
 	if err != nil {
 		return nil, fmt.Errorf("error in the condition stmt of a loop: %v", err)
 	}
-	scope := s.f.createScope()
 	scope.expressions = append(scope.expressions, ifStmt)
 
 	err = scope.parseStatementList(stmt.Body.List, indent+2)
@@ -256,7 +262,7 @@ func (s *WasmScope) createBlock(scope *WasmScope, stmt ast.Stmt, indent int) *Wa
 }
 
 func (s *WasmScope) parseBlockStmt(stmt *ast.BlockStmt, indent int) (*WasmBlock, error) {
-	scope := s.f.createScope()
+	scope := s.f.createScope("block")
 	err := scope.parseStatementList(stmt.List, indent+1)
 	if err != nil {
 		return nil, err
@@ -433,7 +439,7 @@ func (l *WasmLoop) getType() *WasmType {
 }
 
 func (l *WasmLoop) print(writer FormattingWriter) {
-	writer.PrintfIndent(l.getIndent(), "(loop ;; scope %d\n", l.scope.n)
+	writer.PrintfIndent(l.getIndent(), "(loop $%s\n", l.scope.name)
 	for _, e := range l.scope.expressions {
 		e.print(writer)
 	}
@@ -453,7 +459,7 @@ func (b *WasmBreak) getType() *WasmType {
 }
 
 func (b *WasmBreak) print(writer FormattingWriter) {
-	writer.PrintfIndent(b.getIndent(), "(break %d)\n", b.v)
+	writer.PrintfIndent(b.getIndent(), "(break $%s)\n", b.scope.name)
 }
 
 func (b *WasmBreak) getNode() ast.Node {
