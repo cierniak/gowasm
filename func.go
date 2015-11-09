@@ -69,8 +69,10 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 	if funcDecl.Type != nil {
 		f.parseType(funcDecl.Type)
 	}
-	f.parseFuncBody(funcDecl.Body)
-	return f, nil
+	f.scope = f.createScope(f.indent + 1)
+	var err error
+	f.scope, err = f.parseStmtList(funcDecl.Body.List, f.indent+1, f.scope)
+	return f, err
 }
 
 func (f *WasmFunc) parseType(t *ast.FuncType) {
