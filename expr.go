@@ -115,24 +115,24 @@ func (e *WasmExprBase) setParent(parent WasmExpression) {
 	e.parent = parent
 }
 
-func (f *WasmFunc) parseExpr(expr ast.Expr, typeHint *WasmType, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseExpr(expr ast.Expr, typeHint *WasmType, indent int) (WasmExpression, error) {
 	switch expr := expr.(type) {
 	default:
-		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), f.fset))
+		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), s.f.fset))
 	case *ast.BasicLit:
-		return f.parseBasicLit(expr, typeHint, indent)
+		return s.parseBasicLit(expr, typeHint, indent)
 	case *ast.BinaryExpr:
-		return f.parseBinaryExpr(expr, typeHint, indent)
+		return s.parseBinaryExpr(expr, typeHint, indent)
 	case *ast.CallExpr:
-		return f.parseCallExpr(expr, indent)
+		return s.parseCallExpr(expr, indent)
 	case *ast.Ident:
-		return f.parseIdent(expr, indent)
+		return s.parseIdent(expr, indent)
 	case *ast.ParenExpr:
-		return f.parseParenExpr(expr, typeHint, indent)
+		return s.parseParenExpr(expr, typeHint, indent)
 	}
 }
 
-func (f *WasmFunc) createLiteral(value string, ty *WasmType, indent int) (WasmExpression, error) {
+func (s *WasmScope) createLiteral(value string, ty *WasmType, indent int) (WasmExpression, error) {
 	if ty == nil {
 		return nil, fmt.Errorf("not implemented: literal without type: %v", value)
 	}
@@ -144,11 +144,11 @@ func (f *WasmFunc) createLiteral(value string, ty *WasmType, indent int) (WasmEx
 	return val, nil
 }
 
-func (f *WasmFunc) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseBasicLit(lit *ast.BasicLit, typeHint *WasmType, indent int) (WasmExpression, error) {
 	if typeHint == nil {
 		return nil, fmt.Errorf("not implemented: BasicLit without type hint: %v", lit.Value)
 	}
-	return f.createLiteral(lit.Value, typeHint, indent)
+	return s.createLiteral(lit.Value, typeHint, indent)
 }
 
 func isSupportedBinOp(tok token.Token) bool {
@@ -159,7 +159,7 @@ func isSupportedBinOp(tok token.Token) bool {
 	return int(t) > 0
 }
 
-func (f *WasmFunc) createBinaryExpr(x, y WasmExpression, op BinOp, ty *WasmType, indent int) (*WasmBinOp, error) {
+func (s *WasmScope) createBinaryExpr(x, y WasmExpression, op BinOp, ty *WasmType, indent int) (*WasmBinOp, error) {
 	b := &WasmBinOp{
 		op: op,
 		t:  ty,
@@ -170,12 +170,12 @@ func (f *WasmFunc) createBinaryExpr(x, y WasmExpression, op BinOp, ty *WasmType,
 	return b, nil
 }
 
-func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType, indent int) (WasmExpression, error) {
-	x, err := f.parseExpr(expr.X, typeHint, indent+1)
+func (s *WasmScope) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType, indent int) (WasmExpression, error) {
+	x, err := s.parseExpr(expr.X, typeHint, indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get operand X in a binary expression: %v", err)
 	}
-	y, err := f.parseExpr(expr.Y, x.getType(), indent+1)
+	y, err := s.parseExpr(expr.Y, x.getType(), indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get operand Y in a binary expression: %v", err)
 	}
@@ -183,13 +183,13 @@ func (f *WasmFunc) parseBinaryExpr(expr *ast.BinaryExpr, typeHint *WasmType, ind
 		return nil, fmt.Errorf("unsupported binary op: %v", expr.Op)
 	}
 	xt := x.getType()
-	return f.createBinaryExpr(x, y, binOpMapping[expr.Op], xt, indent)
+	return s.createBinaryExpr(x, y, binOpMapping[expr.Op], xt, indent)
 }
 
-func (f *WasmFunc) parseArgs(args []ast.Expr, indent int) []WasmExpression {
+func (s *WasmScope) parseArgs(args []ast.Expr, indent int) []WasmExpression {
 	result := make([]WasmExpression, 0, len(args))
 	for _, arg := range args {
-		e, err := f.parseExpr(arg, nil, indent) // TODO: Should the hint be nil?
+		e, err := s.parseExpr(arg, nil, indent) // TODO: Should the hint be nil?
 		if err != nil {
 			panic(err)
 		}
@@ -198,24 +198,24 @@ func (f *WasmFunc) parseArgs(args []ast.Expr, indent int) []WasmExpression {
 	return result
 }
 
-func (f *WasmFunc) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, indent int) (WasmExpression, error) {
-	ty, err := f.module.parseAstType(fun)
+func (s *WasmScope) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, indent int) (WasmExpression, error) {
+	ty, err := s.f.module.parseAstType(fun)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse type name in type conversion: %v", err)
 	}
-	return f.parseExpr(v, ty, indent)
+	return s.parseExpr(v, ty, indent)
 }
 
-func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
 	switch fun := call.Fun.(type) {
 	default:
-		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, f.fset))
+		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, s.f.fset))
 	case *ast.Ident:
-		ty, _, err := f.module.convertAstTypeToWasmType(fun)
+		ty, _, err := s.f.module.convertAstTypeToWasmType(fun)
 		if err == nil && len(call.Args) == 1 {
-			return f.parseConvertExpr(ty, fun, call.Args[0], indent)
+			return s.parseConvertExpr(ty, fun, call.Args[0], indent)
 		}
-		args := f.parseArgs(call.Args, indent+1)
+		args := s.parseArgs(call.Args, indent+1)
 		c := &WasmCall{
 			name: astNameToWASM(fun.Name, nil),
 			args: args,
@@ -224,7 +224,7 @@ func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression
 		// TODO: Make it work for forward references.
 		decl, ok := fun.Obj.Decl.(*ast.FuncDecl)
 		if ok {
-			def, ok := f.module.functionMap[decl]
+			def, ok := s.f.module.functionMap[decl]
 			if ok {
 				c.def = def
 			}
@@ -234,28 +234,28 @@ func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression
 		return c, nil
 	case *ast.SelectorExpr:
 		if isWASMRuntimePackage(fun.X) {
-			return f.parseWASMRuntimeCall(fun.Sel, call, indent)
+			return s.parseWASMRuntimeCall(fun.Sel, call, indent)
 		}
 	}
-	return nil, fmt.Errorf("unimplemented call expression at %s", positionString(call.Lparen, f.fset))
+	return nil, fmt.Errorf("unimplemented call expression at %s", positionString(call.Lparen, s.f.fset))
 }
 
-func (f *WasmFunc) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
-	v, ok := f.module.variables[ident.Obj]
+func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
+	v, ok := s.f.module.variables[ident.Obj]
 	if !ok {
-		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, f.fset))
+		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, s.f.fset))
 	}
 	g := &WasmGetLocal{
 		astIdent: ident,
 		def:      v,
-		f:        f,
+		f:        s.f,
 	}
 	g.setIndent(indent)
 	return g, nil
 }
 
-func (f *WasmFunc) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType, indent int) (WasmExpression, error) {
-	return f.parseExpr(p.X, typeHint, indent)
+func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint *WasmType, indent int) (WasmExpression, error) {
+	return s.parseExpr(p.X, typeHint, indent)
 }
 
 func (v *WasmValue) print(writer FormattingWriter) {

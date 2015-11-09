@@ -38,11 +38,11 @@ func isWASMRuntimePackage(expr ast.Expr) bool {
 	return ok && ident.Name == "wasm"
 }
 
-func (f *WasmFunc) parseWASMRuntimeSignature(name string) ([]*WasmType, error) {
+func (s *WasmScope) parseWASMRuntimeSignature(name string) ([]*WasmType, error) {
 	result := make([]*WasmType, 0, 10)
 	parts := strings.Split(name, "_")
 	for _, typeName := range parts[1:] {
-		t, ok := f.module.types[typeName]
+		t, ok := s.f.module.types[typeName]
 		if !ok {
 			// TODO(cierniak): Implement this case.
 			return nil, fmt.Errorf("type %s hasn't been used yet", typeName)
@@ -52,24 +52,24 @@ func (f *WasmFunc) parseWASMRuntimeSignature(name string) ([]*WasmType, error) {
 	return result, nil
 }
 
-func (f *WasmFunc) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
 	name := ident.Name
-	params, err := f.parseWASMRuntimeSignature(name)
+	params, err := s.parseWASMRuntimeSignature(name)
 	if err != nil {
 		return nil, err
 	}
-	i, ok := f.module.imports[name]
+	i, ok := s.f.module.imports[name]
 	if !ok {
 		i = &WasmImport{
 			name:       astNameToWASM(name, nil),
 			moduleName: "stdio", // TODO(cierniak): support other WASM modules
 			funcName:   "print", // TODO(cierniak): support other functions
 			params:     params,
-			indent:     f.module.indent + 1,
+			indent:     s.f.module.indent + 1,
 		}
-		f.module.imports[name] = i
+		s.f.module.imports[name] = i
 	}
-	args := f.parseArgs(call.Args, indent+1)
+	args := s.parseArgs(call.Args, indent+1)
 	c := &WasmCallImport{
 		i:    i,
 		args: args,

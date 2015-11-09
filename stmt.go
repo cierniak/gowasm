@@ -156,7 +156,7 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 	}
 
 	var err error
-	rhs, err := s.f.parseExpr(stmt.Rhs[0], nil, indent+1)
+	rhs, err := s.parseExpr(stmt.Rhs[0], nil, indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing RHS of an assignment: %v", err)
 	}
@@ -187,7 +187,7 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 }
 
 func (s *WasmScope) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpression, error) {
-	expr, err := s.f.parseExpr(stmt.X, nil, indent)
+	expr, err := s.parseExpr(stmt.X, nil, indent)
 	if err != nil {
 		return nil, fmt.Errorf("error in ExprStmt: %v", err)
 	}
@@ -205,7 +205,7 @@ func (s *WasmScope) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression,
 		}
 	}
 
-	cond, err := s.f.parseExpr(stmt.Cond, nil, indent+3)
+	cond, err := s.parseExpr(stmt.Cond, nil, indent+3)
 	if err != nil {
 		return nil, fmt.Errorf("error in the condition of a loop: %v", err)
 	}
@@ -281,7 +281,7 @@ func (s *WasmScope) parseIfStmt(stmt *ast.IfStmt, indent int) (WasmExpression, e
 	if stmt.Else != nil {
 		return nil, fmt.Errorf("unimplemented IfStmt with an else")
 	}
-	cond, err := s.f.parseExpr(stmt.Cond, nil, indent+1)
+	cond, err := s.parseExpr(stmt.Cond, nil, indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("error in condition of an IfStmt: %v", err)
 	}
@@ -306,17 +306,17 @@ func (s *WasmScope) parseIncDecStmt(stmt *ast.IncDecStmt, indent int) (WasmExpre
 		if !ok {
 			return nil, fmt.Errorf("undefined variable '%s' in IncDecStmt at %s", x.Obj.Name, positionString(x.Pos(), s.f.fset))
 		}
-		vRHS, err := s.f.parseIdent(x, indent+2)
+		vRHS, err := s.parseIdent(x, indent+2)
 		if err != nil {
 			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
 		}
 
-		inc, err := s.f.createLiteral("1", v.getType(), indent+2)
+		inc, err := s.createLiteral("1", v.getType(), indent+2)
 		if err != nil {
 			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
 		}
 
-		rhs, err := s.f.createBinaryExpr(vRHS, inc, binOpMapping[stmt.Tok], v.getType(), indent+1)
+		rhs, err := s.createBinaryExpr(vRHS, inc, binOpMapping[stmt.Tok], v.getType(), indent+1)
 		if err != nil {
 			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
 		}
@@ -341,7 +341,7 @@ func (s *WasmScope) parseReturnStmt(stmt *ast.ReturnStmt, indent int) (WasmExpre
 		if len(stmt.Results) != 1 {
 			return nil, fmt.Errorf("unimplemented multi-value return statement")
 		}
-		value, err := s.f.parseExpr(stmt.Results[0], s.f.result.t, indent+1)
+		value, err := s.parseExpr(stmt.Results[0], s.f.result.t, indent+1)
 		if err != nil {
 			return nil, err
 		}
