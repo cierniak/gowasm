@@ -78,6 +78,7 @@ type WasmCall struct {
 	name string
 	args []WasmExpression
 	call *ast.CallExpr
+	def  *WasmFunc
 }
 
 // ( get_local <var> )
@@ -220,6 +221,15 @@ func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression
 			args: args,
 			call: call,
 		}
+		// TODO: Make it work for forward references.
+		decl, ok := fun.Obj.Decl.(*ast.FuncDecl)
+		if ok {
+			def, ok := f.module.functionMap[decl]
+			if ok {
+				c.def = def
+			}
+
+		}
 		c.setIndent(indent)
 		return c, nil
 	case *ast.SelectorExpr:
@@ -227,7 +237,7 @@ func (f *WasmFunc) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression
 			return f.parseWASMRuntimeCall(fun.Sel, call, indent)
 		}
 	}
-	return nil, fmt.Errorf("call expressions are not implemented at %s", positionString(call.Lparen, f.fset))
+	return nil, fmt.Errorf("unimplemented call expression at %s", positionString(call.Lparen, f.fset))
 }
 
 func (f *WasmFunc) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
@@ -291,8 +301,10 @@ func (g *WasmGetLocal) getNode() ast.Node {
 	return nil
 }
 
-func (p *WasmCall) getType() *WasmType {
-	// TODO
+func (c *WasmCall) getType() *WasmType {
+	if c.def != nil {
+		return c.def.result.t
+	}
 	return nil
 }
 
