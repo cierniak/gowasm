@@ -24,8 +24,15 @@ type WasmTypeScalar struct {
 	WasmTypeBase
 }
 
+type WasmField struct {
+	name   string
+	offset int
+	t      WasmType
+}
+
 type WasmTypeStruct struct {
 	WasmTypeBase
+	fields []*WasmField
 }
 
 func (t *WasmTypeBase) getName() string {
@@ -118,6 +125,7 @@ func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (
 	case *ast.StructType:
 		st := &WasmTypeStruct{}
 		st.setName(name)
+		st.setAlign(64)
 		// Insert incomplete the type declaration now to handle recursive types.
 		m.types[name] = st
 		return m.parseAstStructType(st, astType, fset)
@@ -125,6 +133,28 @@ func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (
 }
 
 func (m *WasmModule) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType, fset *token.FileSet) (WasmType, error) {
-	fmt.Printf("parseAstStructType, t: %v, astType: %v\n", t, astType)
-	return nil, fmt.Errorf("struct types are under construction")
+	if astType.Fields == nil || astType.Fields.List == nil {
+		return nil, fmt.Errorf("struct types with no fields are not supported (struct %s)", t.getName())
+	}
+	astFields := astType.Fields.List
+	t.fields = make([]*WasmField, len(astFields), len(astFields))
+	var offset int
+	for i, astField := range astFields {
+		if len(astField.Names) != 1 {
+			return nil, fmt.Errorf("struct types with multiple fields per type are not supported (struct %s)", t.getName())
+		}
+		field := &WasmField{
+			name:   astField.Names[0].Name,
+			offset: offset,
+		}
+		t.fields[i] = field
+		ty, err := m.parseAstType(astField.Type)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing type of field %s: %v", field.name, err)
+		}
+		field.t = ty
+		offset += ty.getSize() // TODO: Take alignment into account
+	}
+	t.setSize(offset)
+	return t, nil
 }
