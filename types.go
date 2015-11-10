@@ -7,23 +7,23 @@ import (
 
 // type: i32 | i64 | f32 | f64
 type WasmType struct {
-	// TODO(cierniak): need an enum here
-	name string
-	size int
+	name  string
+	size  int
+	align int
 }
 
 func (t *WasmType) print(writer FormattingWriter) {
 	writer.Printf("%s", t.name)
 }
 
-func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (string, int, error) {
+func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmType, error) {
 	switch astType.Name {
 	case "int32":
-		return "i32", 32, nil
+		return &WasmType{name: "i32", size: 32, align: 32}, nil
 	case "int64":
-		return "i64", 64, nil
+		return &WasmType{name: "i64", size: 64, align: 64}, nil
 	}
-	return "", 0, fmt.Errorf("unimplemented type: '%s'", astType.Name)
+	return nil, fmt.Errorf("unimplemented type: '%s'", astType.Name)
 }
 
 func (m *WasmModule) parseAstType(astType ast.Expr) (*WasmType, error) {
@@ -31,18 +31,15 @@ func (m *WasmModule) parseAstType(astType ast.Expr) (*WasmType, error) {
 		name := astTypeIdent.Name
 		t, ok := m.types[name]
 		if !ok {
-			typeName, size, err := m.convertAstTypeToWasmType(astTypeIdent)
+			var err error
+			t, err = m.convertAstTypeToWasmType(astTypeIdent)
 			if err != nil {
-				panic(err)
-			}
-			t = &WasmType{
-				name: typeName,
-				size: size,
+				return nil, err
 			}
 			m.types[name] = t
 		}
 		return t, nil
 	}
 	err := fmt.Errorf("type is not an ident: %v", astType)
-	panic(err)
+	return nil, err
 }

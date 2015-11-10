@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gowasm/tests/fac"
 	"gowasm/tests/i32"
+	"gowasm/tests/mem"
 )
 
 func main() {
@@ -21,5 +22,7 @@ func main() {
 	fmt.Printf("-- Asserting return... Expr2(100, 20, 5) --> %d\n", v32)
 	v32 = i32.NestedLoop(5, 7)
 	fmt.Printf("-- Asserting return... NestedLoop(5, 7) --> %d\n", v32)
+	v32 = mem.F(6)
+	fmt.Printf("-- Asserting return... F(6) --> %d\n", v32)
 	fmt.Printf("Tests complete\n")
 }

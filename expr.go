@@ -211,9 +211,9 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 	default:
 		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, s.f.fset))
 	case *ast.Ident:
-		ty, _, err := s.f.module.convertAstTypeToWasmType(fun)
+		typ, err := s.f.module.parseAstType(fun)
 		if err == nil && len(call.Args) == 1 {
-			return s.parseConvertExpr(ty, fun, call.Args[0], indent)
+			return s.parseConvertExpr(typ.name, fun, call.Args[0], indent)
 		}
 		args := s.parseArgs(call.Args, indent+1)
 		c := &WasmCall{
