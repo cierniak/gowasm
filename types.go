@@ -6,7 +6,7 @@ import (
 	"go/token"
 )
 
-type WasmTypeI interface {
+type WasmType interface {
 	getName() string
 	getSize() int
 	getAlign() int
@@ -77,7 +77,7 @@ func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScal
 	return t, nil
 }
 
-func (m *WasmModule) parseAstType(astType ast.Expr) (WasmTypeI, error) {
+func (m *WasmModule) parseAstType(astType ast.Expr) (WasmType, error) {
 	if astTypeIdent, ok := astType.(*ast.Ident); ok {
 		name := astTypeIdent.Name
 		t, ok := m.types[name]
@@ -95,7 +95,7 @@ func (m *WasmModule) parseAstType(astType ast.Expr) (WasmTypeI, error) {
 	return nil, err
 }
 
-func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmTypeI, error) {
+func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmType, error) {
 	if len(decl.Specs) != 1 {
 		return nil, fmt.Errorf("unsupported type declaration with %d specs", len(decl.Specs))
 	}
@@ -107,7 +107,7 @@ func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (W
 	}
 }
 
-func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (WasmTypeI, error) {
+func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (WasmType, error) {
 	name := spec.Name.Name
 	if t, ok := m.types[name]; ok {
 		return t, nil
@@ -124,7 +124,7 @@ func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (
 	}
 }
 
-func (m *WasmModule) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType, fset *token.FileSet) (WasmTypeI, error) {
+func (m *WasmModule) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType, fset *token.FileSet) (WasmType, error) {
 	fmt.Printf("parseAstStructType, t: %v, astType: %v\n", t, astType)
 	return nil, fmt.Errorf("struct types are under construction")
 }

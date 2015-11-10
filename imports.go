@@ -11,8 +11,8 @@ type WasmImport struct {
 	name       string
 	moduleName string
 	funcName   string
-	params     []WasmTypeI
-	result     WasmTypeI // TODO(cierniak): multiple values may be returned.
+	params     []WasmType
+	result     WasmType // TODO(cierniak): multiple values may be returned.
 	indent     int
 }
 
@@ -38,8 +38,8 @@ func isWASMRuntimePackage(expr ast.Expr) bool {
 	return ok && ident.Name == "wasm"
 }
 
-func (s *WasmScope) parseWASMRuntimeSignature(name string) ([]WasmTypeI, error) {
-	result := make([]WasmTypeI, 0, 10)
+func (s *WasmScope) parseWASMRuntimeSignature(name string) ([]WasmType, error) {
+	result := make([]WasmType, 0, 10)
 	parts := strings.Split(name, "_")
 	for _, typeName := range parts[1:] {
 		t, ok := s.f.module.types[typeName]
@@ -79,7 +79,7 @@ func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, i
 	return c, nil
 }
 
-func (p *WasmCallImport) getType() WasmTypeI {
+func (p *WasmCallImport) getType() WasmType {
 	// TODO
 	return nil
 }

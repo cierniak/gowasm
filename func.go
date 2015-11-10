@@ -30,13 +30,13 @@ type WasmParam struct {
 	astIdent *ast.Ident
 	astType  ast.Expr
 	name     string
-	t        WasmTypeI
+	t        WasmType
 }
 
 type WasmLocal struct {
 	astIdent *ast.Ident
 	name     string
-	t        WasmTypeI
+	t        WasmType
 }
 
 // result: ( result <type> )
@@ -44,7 +44,7 @@ type WasmResult struct {
 	astIdent *ast.Ident
 	astType  ast.Expr
 	name     string
-	t        WasmTypeI
+	t        WasmType
 }
 
 func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, indent int) (*WasmFunc, error) {
@@ -156,7 +156,7 @@ func (p *WasmParam) getName() string {
 	return p.name
 }
 
-func (p *WasmParam) getType() WasmTypeI {
+func (p *WasmParam) getType() WasmType {
 	return p.t
 }
 
@@ -179,7 +179,7 @@ func (v *WasmLocal) getName() string {
 	return v.name
 }
 
-func (v *WasmLocal) getType() WasmTypeI {
+func (v *WasmLocal) getType() WasmType {
 	return v.t
 }
 
