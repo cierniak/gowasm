@@ -79,7 +79,7 @@ func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, i
 	return c, nil
 }
 
-func (p *WasmCallImport) getType() *WasmType {
+func (p *WasmCallImport) getType() WasmTypeI {
 	// TODO
 	return nil
 }

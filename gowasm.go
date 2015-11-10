@@ -13,7 +13,7 @@ import (
 
 type WasmVariable interface {
 	print(writer FormattingWriter)
-	getType() *WasmType
+	getType() WasmTypeI
 	getName() string
 }
 

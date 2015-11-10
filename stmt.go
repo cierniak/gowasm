@@ -119,7 +119,7 @@ func (s *WasmScope) createNop(indent int) *WasmNop {
 	return n
 }
 
-func (s *WasmScope) parseDefineAssignLHS(lhs []ast.Expr, ty *WasmType, indent int) (WasmVariable, error) {
+func (s *WasmScope) parseDefineAssignLHS(lhs []ast.Expr, ty WasmTypeI, indent int) (WasmVariable, error) {
 	if len(lhs) != 1 {
 		return nil, fmt.Errorf("unimplemented multi-value LHS in AssignStmt")
 	}
@@ -138,7 +138,7 @@ func (s *WasmScope) parseDefineAssignLHS(lhs []ast.Expr, ty *WasmType, indent in
 	}
 }
 
-func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty *WasmType, indent int) (WasmVariable, error) {
+func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty WasmTypeI, indent int) (WasmVariable, error) {
 	if len(lhs) != 1 {
 		return nil, fmt.Errorf("unimplemented multi-value LHS in AssignStmt")
 	}
@@ -356,7 +356,7 @@ func (s *WasmScope) parseReturnStmt(stmt *ast.ReturnStmt, indent int) (WasmExpre
 	return r, nil
 }
 
-func (n *WasmNop) getType() *WasmType {
+func (n *WasmNop) getType() WasmTypeI {
 	return nil
 }
 
@@ -368,7 +368,7 @@ func (n *WasmNop) getNode() ast.Node {
 	return nil
 }
 
-func (b *WasmBlock) getType() *WasmType {
+func (b *WasmBlock) getType() WasmTypeI {
 	return nil
 }
 
@@ -388,7 +388,7 @@ func (b *WasmBlock) getNode() ast.Node {
 	}
 }
 
-func (r *WasmReturn) getType() *WasmType {
+func (r *WasmReturn) getType() WasmTypeI {
 	if r.value == nil {
 		return nil
 	} else {
@@ -412,7 +412,7 @@ func (r *WasmReturn) getNode() ast.Node {
 	}
 }
 
-func (i *WasmIf) getType() *WasmType {
+func (i *WasmIf) getType() WasmTypeI {
 	return nil
 }
 
@@ -434,7 +434,7 @@ func (i *WasmIf) getNode() ast.Node {
 	}
 }
 
-func (l *WasmLoop) getType() *WasmType {
+func (l *WasmLoop) getType() WasmTypeI {
 	return nil
 }
 
@@ -454,7 +454,7 @@ func (l *WasmLoop) getNode() ast.Node {
 	}
 }
 
-func (b *WasmBreak) getType() *WasmType {
+func (b *WasmBreak) getType() WasmTypeI {
 	return nil
 }
 
@@ -472,7 +472,7 @@ func (s *WasmSetLocal) print(writer FormattingWriter) {
 	writer.PrintfIndent(s.getIndent(), ") ;; set_local %s\n", s.lhs.getName())
 }
 
-func (s *WasmSetLocal) getType() *WasmType {
+func (s *WasmSetLocal) getType() WasmTypeI {
 	return s.lhs.getType()
 }
 
