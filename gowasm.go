@@ -26,7 +26,7 @@ type WasmModule struct {
 	namePos      token.Pos
 	functions    []*WasmFunc
 	functionMap  map[*ast.FuncDecl]*WasmFunc
-	types        map[string]*WasmType
+	types        map[string]WasmTypeI
 	variables    map[*ast.Object]WasmVariable
 	imports      map[string]*WasmImport
 	assertReturn []string
@@ -40,7 +40,7 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 		indent:       0,
 		functions:    make([]*WasmFunc, 0, 10),
 		functionMap:  make(map[*ast.FuncDecl]*WasmFunc),
-		types:        make(map[string]*WasmType),
+		types:        make(map[string]WasmTypeI),
 		variables:    make(map[*ast.Object]WasmVariable),
 		imports:      make(map[string]*WasmImport),
 		assertReturn: make([]string, 0, 10),

@@ -64,7 +64,7 @@ func (m *WasmModule) parseAstType(astType ast.Expr) (WasmTypeI, error) {
 	return nil, err
 }
 
-func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (*WasmType, error) {
+func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmTypeI, error) {
 	if len(decl.Specs) != 1 {
 		return nil, fmt.Errorf("unsupported type declaration with %d specs", len(decl.Specs))
 	}
@@ -76,24 +76,23 @@ func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (*
 	}
 }
 
-func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (*WasmType, error) {
+func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (WasmTypeI, error) {
 	name := spec.Name.Name
-	t, ok := m.types[name]
-	if !ok {
-		t = &WasmType{name: name}
-		// Insert incomplete type declaration now to handle recursive types.
-		m.types[name] = t
-		switch astType := spec.Type.(type) {
-		default:
-			return nil, fmt.Errorf("unsupported type declaration: %v", astType)
-		case *ast.StructType:
-			return m.parseAstStructType(t, astType, fset)
-		}
+	if t, ok := m.types[name]; ok {
+		return t, nil
 	}
-	return t, nil
+	switch astType := spec.Type.(type) {
+	default:
+		return nil, fmt.Errorf("unsupported type declaration: %v", astType)
+	case *ast.StructType:
+		st := &WasmType{name: name}
+		// Insert incomplete type declaration now to handle recursive types.
+		m.types[name] = st
+		return m.parseAstStructType(st, astType, fset)
+	}
 }
 
-func (m *WasmModule) parseAstStructType(t *WasmType, astType *ast.StructType, fset *token.FileSet) (*WasmType, error) {
+func (m *WasmModule) parseAstStructType(t *WasmType, astType *ast.StructType, fset *token.FileSet) (WasmTypeI, error) {
 	fmt.Printf("parseAstStructType, t: %v, astType: %v\n", t, astType)
 	return nil, fmt.Errorf("struct types are under construction")
 }
