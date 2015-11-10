@@ -13,37 +13,68 @@ type WasmTypeI interface {
 	print(writer FormattingWriter)
 }
 
-// type: i32 | i64 | f32 | f64
-type WasmType struct {
+type WasmTypeBase struct {
 	name  string
 	size  int
 	align int
 }
 
-func (t *WasmType) print(writer FormattingWriter) {
-	writer.Printf("%s", t.name)
+// type: i32 | i64 | f32 | f64
+type WasmTypeScalar struct {
+	WasmTypeBase
 }
 
-func (t *WasmType) getName() string {
+type WasmTypeStruct struct {
+	WasmTypeBase
+}
+
+func (t *WasmTypeBase) getName() string {
 	return t.name
 }
 
-func (t *WasmType) getSize() int {
+func (t *WasmTypeBase) setName(name string) {
+	t.name = name
+}
+
+func (t *WasmTypeBase) getSize() int {
 	return t.size
 }
 
-func (t *WasmType) getAlign() int {
+func (t *WasmTypeBase) setSize(size int) {
+	t.size = size
+}
+
+func (t *WasmTypeBase) getAlign() int {
 	return t.align
 }
 
-func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmType, error) {
+func (t *WasmTypeBase) setAlign(align int) {
+	t.align = align
+}
+
+func (t *WasmTypeScalar) print(writer FormattingWriter) {
+	writer.Printf("%s", t.name)
+}
+
+func (t *WasmTypeStruct) print(writer FormattingWriter) {
+	writer.Printf("%s", t.name)
+}
+
+func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScalar, error) {
+	t := &WasmTypeScalar{}
 	switch astType.Name {
+	default:
+		return nil, fmt.Errorf("unimplemented scalar type: '%s'", astType.Name)
 	case "int32":
-		return &WasmType{name: "i32", size: 32, align: 32}, nil
+		t.setName("i32")
+		t.setSize(32)
+		t.setAlign(32)
 	case "int64":
-		return &WasmType{name: "i64", size: 64, align: 64}, nil
+		t.setName("i64")
+		t.setSize(64)
+		t.setAlign(64)
 	}
-	return nil, fmt.Errorf("unimplemented type: '%s'", astType.Name)
+	return t, nil
 }
 
 func (m *WasmModule) parseAstType(astType ast.Expr) (WasmTypeI, error) {
@@ -85,14 +116,15 @@ func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (
 	default:
 		return nil, fmt.Errorf("unsupported type declaration: %v", astType)
 	case *ast.StructType:
-		st := &WasmType{name: name}
-		// Insert incomplete type declaration now to handle recursive types.
+		st := &WasmTypeStruct{}
+		st.setName(name)
+		// Insert incomplete the type declaration now to handle recursive types.
 		m.types[name] = st
 		return m.parseAstStructType(st, astType, fset)
 	}
 }
 
-func (m *WasmModule) parseAstStructType(t *WasmType, astType *ast.StructType, fset *token.FileSet) (WasmTypeI, error) {
+func (m *WasmModule) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType, fset *token.FileSet) (WasmTypeI, error) {
 	fmt.Printf("parseAstStructType, t: %v, astType: %v\n", t, astType)
 	return nil, fmt.Errorf("struct types are under construction")
 }
