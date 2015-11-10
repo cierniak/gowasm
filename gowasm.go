@@ -52,13 +52,27 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 	}
 
 	for _, decl := range f.Decls {
-		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
-			fn, err := m.parseAstFuncDecl(funcDecl, fset, m.indent+1)
+		switch decl := decl.(type) {
+		default:
+			return nil, fmt.Errorf("unimplemented declaration type: %v at %s", decl, positionString(decl.Pos(), fset))
+		case *ast.GenDecl:
+			switch decl.Tok {
+			default:
+				fmt.Printf("Ignoring GenDecl, token: %v\n", decl.Tok)
+			case token.TYPE:
+				ty, err := m.parseAstTypeDecl(decl, fset)
+				if err != nil {
+					return nil, err
+				}
+				fmt.Printf("Parsed type: %v\n", ty)
+			}
+		case *ast.FuncDecl:
+			fn, err := m.parseAstFuncDecl(decl, fset, m.indent+1)
 			if err != nil {
 				return nil, err
 			}
 			m.functions = append(m.functions, fn)
-			m.functionMap[funcDecl] = fn
+			m.functionMap[decl] = fn
 		}
 	}
 	return m, nil

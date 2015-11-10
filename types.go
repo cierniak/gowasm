@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 )
 
 // type: i32 | i64 | f32 | f64
@@ -42,4 +43,8 @@ func (m *WasmModule) parseAstType(astType ast.Expr) (*WasmType, error) {
 	}
 	err := fmt.Errorf("type is not an ident: %v", astType)
 	return nil, err
+}
+
+func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (*WasmType, error) {
+	return nil, nil
 }
