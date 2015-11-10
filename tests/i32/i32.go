@@ -23,13 +23,15 @@ func Expr2(a, b, c int32) int32 {
 	return Add(a, b/c)
 }
 
-//wasm:assert_return (invoke "NestedLoop" (i32.const 5) (i32.const 7)) (i32.const 62)
+//wasm:assert_return (invoke "NestedLoop" (i32.const 5) (i32.const 7)) (i32.const 35)
 func NestedLoop(a, b int32) int32 {
 	sum := int32(0)
-	for i := int32(0); i < 10; i++ {
-		sum = sum + a
+	for i := int32(0); i < a; i++ {
+		for j := int32(0); j < b; j++ {
+			sum = sum + 1
+		}
 	}
-	return sum + a + b
+	return sum
 }
 
 func two() int32 {
