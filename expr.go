@@ -129,6 +129,8 @@ func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (Was
 		return s.parseIdent(expr, indent)
 	case *ast.ParenExpr:
 		return s.parseParenExpr(expr, typeHint, indent)
+	case *ast.UnaryExpr:
+		return s.parseUnaryExpr(expr, indent)
 	}
 }
 
@@ -256,6 +258,33 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 
 func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent int) (WasmExpression, error) {
 	return s.parseExpr(p.X, typeHint, indent)
+}
+
+func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
+	t, err := s.f.module.parseAstType(expr.Type)
+	if err != nil {
+		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
+	}
+	fmt.Printf("parseStructAlloc, expr: %v, t: %v\n", expr, t)
+	return nil, fmt.Errorf("struct allocation is not implemented: %v", expr)
+}
+
+func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, error) {
+	switch expr := expr.(type) {
+	default:
+		return nil, fmt.Errorf("unsupported address-of operand: %v", expr)
+	case *ast.CompositeLit:
+		return s.parseStructAlloc(expr, indent)
+	}
+}
+
+func (s *WasmScope) parseUnaryExpr(expr *ast.UnaryExpr, indent int) (WasmExpression, error) {
+	switch expr.Op {
+	default:
+		return nil, fmt.Errorf("unimplemented UnaryExpr, token='%v'", expr.Op)
+	case token.AND:
+		return s.parseAddressOf(expr.X, indent)
+	}
 }
 
 func (v *WasmValue) print(writer FormattingWriter) {

@@ -60,11 +60,10 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 			default:
 				fmt.Printf("Ignoring GenDecl, token: %v\n", decl.Tok)
 			case token.TYPE:
-				ty, err := m.parseAstTypeDecl(decl, fset)
+				_, err := m.parseAstTypeDecl(decl, fset)
 				if err != nil {
 					return nil, err
 				}
-				fmt.Printf("Parsed type: %v\n", ty)
 			}
 		case *ast.FuncDecl:
 			fn, err := m.parseAstFuncDecl(decl, fset, m.indent+1)
