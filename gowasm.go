@@ -19,32 +19,35 @@ type WasmVariable interface {
 
 // module:  ( module <type>* <func>* <global>* <import>* <export>* <table>* <memory>? )
 type WasmModule struct {
-	f            *ast.File
-	fset         *token.FileSet
-	indent       int
-	name         string
-	namePos      token.Pos
-	functions    []*WasmFunc
-	functionMap  map[*ast.FuncDecl]*WasmFunc
-	types        map[string]WasmType
-	variables    map[*ast.Object]WasmVariable
-	imports      map[string]*WasmImport
-	assertReturn []string
-	invoke       []string
+	f             *ast.File
+	fset          *token.FileSet
+	indent        int
+	name          string
+	namePos       token.Pos
+	functions     []*WasmFunc
+	functionMap   map[*ast.FuncDecl]*WasmFunc
+	types         map[string]WasmType
+	variables     map[*ast.Object]WasmVariable
+	imports       map[string]*WasmImport
+	assertReturn  []string
+	invoke        []string
+	globalVarAddr int
+	freePtrAddr   int32
 }
 
 func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 	m := &WasmModule{
-		f:            f,
-		fset:         fset,
-		indent:       0,
-		functions:    make([]*WasmFunc, 0, 10),
-		functionMap:  make(map[*ast.FuncDecl]*WasmFunc),
-		types:        make(map[string]WasmType),
-		variables:    make(map[*ast.Object]WasmVariable),
-		imports:      make(map[string]*WasmImport),
-		assertReturn: make([]string, 0, 10),
-		invoke:       make([]string, 0, 10),
+		f:             f,
+		fset:          fset,
+		indent:        0,
+		functions:     make([]*WasmFunc, 0, 10),
+		functionMap:   make(map[*ast.FuncDecl]*WasmFunc),
+		types:         make(map[string]WasmType),
+		variables:     make(map[*ast.Object]WasmVariable),
+		imports:       make(map[string]*WasmImport),
+		assertReturn:  make([]string, 0, 10),
+		invoke:        make([]string, 0, 10),
+		globalVarAddr: 32,
 	}
 	if ident := f.Name; ident != nil {
 		m.name = ident.Name
@@ -99,6 +102,38 @@ func (m *WasmModule) parsePragma(p string) {
 	}
 }
 
+func (m *WasmModule) printMemory(writer FormattingWriter) {
+	indent := 1
+	size := 1024
+	writer.Printf("\n")
+	writer.PrintfIndent(indent, "(memory %d\n", size)
+
+	// Globals segment
+	writer.PrintfIndent(indent+1, "(segment 0 \"")
+	writer.Printf("\") ;; global variables\n")
+
+	// Heap segment
+	writer.PrintfIndent(indent+1, "(segment %d \"", m.globalVarAddr)
+	writer.Printf("\") ;; heap\n")
+
+	writer.PrintfIndent(indent, ")\n")
+}
+
+func (m *WasmModule) printGlobalVars(writer FormattingWriter) {
+	var headerPrinted bool
+	for _, v := range m.variables {
+		switch v := v.(type) {
+		case *WasmGlobalVar:
+			if !headerPrinted {
+				writer.Printf("\n")
+				writer.PrintfIndent(1, ";; Global variables\n")
+				headerPrinted = true
+			}
+			v.print(writer)
+		}
+	}
+}
+
 func (m *WasmModule) printImports(writer FormattingWriter) {
 	for _, i := range m.imports {
 		i.print(writer)
@@ -122,7 +157,9 @@ func (m *WasmModule) print(writer FormattingWriter) {
 	writer.Printf("(module\n")
 	bodyIndent := m.indent + 1
 	writer.PrintfIndent(bodyIndent, ";; Go package '%s' %s\n", m.name, positionString(m.namePos, m.fset))
+	m.printMemory(writer)
 	m.printImports(writer)
+	m.printGlobalVars(writer)
 	for _, f := range m.functions {
 		writer.Printf("\n")
 		f.print(writer)

@@ -7,9 +7,10 @@ import (
 )
 
 type WasmGlobalVar struct {
-	name string
-	t    WasmType
-	addr int32
+	name   string
+	t      WasmType
+	addr   int32
+	indent int
 }
 
 type WasmGetGlobal struct {
@@ -28,7 +29,7 @@ type WasmSetGlobal struct {
 }
 
 func (v *WasmGlobalVar) print(writer FormattingWriter) {
-	writer.Printf(";; global variable %s\n", v.getName())
+	writer.PrintfIndent(v.indent, ";; @%x (size %d): var %s %s\n", v.addr, v.t.getSize(), v.getName(), v.t.getName())
 }
 
 func (v *WasmGlobalVar) getType() WasmType {
@@ -92,10 +93,16 @@ func (m *WasmModule) parseAstVarSpec(spec *ast.ValueSpec, fset *token.FileSet) (
 		return nil, fmt.Errorf("unsupported type for variable %s", name)
 	}
 	v := &WasmGlobalVar{
-		name: name,
-		t:    t,
+		name:   name,
+		t:      t,
+		addr:   int32(m.globalVarAddr), // TODO: take alignment into account
+		indent: 1,
 	}
 	m.variables[ident.Obj] = v
 	fmt.Printf("parseAstVarSpec, v: %v\n", v)
+	m.globalVarAddr += t.getSize()
+	if name == "freePointer" {
+		m.freePtrAddr = v.addr
+	}
 	return v, nil
 }
