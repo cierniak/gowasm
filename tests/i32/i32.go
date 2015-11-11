@@ -37,3 +37,23 @@ func NestedLoop(a, b int32) int32 {
 func two() int32 {
 	return 2
 }
+
+//wasm:assert_return (invoke "DivSigned" (i32.const 100) (i32.const 20)) (i32.const 5)
+func DivSigned(a, b int32) int32 {
+	return a / b
+}
+
+//wasm:assert_return (invoke "DivUnsigned" (i32.const 100) (i32.const 20)) (i32.const 5)
+func DivUnsigned(a, b uint32) uint32 {
+	return a / b
+}
+
+//wasm:assert_return (invoke "DistanceUnsigned" (i32.const 100) (i32.const 20)) (i32.const 80)
+//wasm:assert_return (invoke "DistanceUnsigned" (i32.const 100) (i32.const 100)) (i32.const 0)
+//wasm:assert_return (invoke "DistanceUnsigned" (i32.const 30) (i32.const 100)) (i32.const 70)
+func DistanceUnsigned(a, b uint32) uint32 {
+	if a > b {
+		return a - b
+	}
+	return b - a
+}

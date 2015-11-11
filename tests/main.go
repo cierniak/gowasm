@@ -21,6 +21,8 @@ func main() {
 	fmt.Printf("-- Asserting return... Expr1(10, 3) --> %d\n", v32)
 	v32 = i32.Expr2(100, 20, 5)
 	fmt.Printf("-- Asserting return... Expr2(100, 20, 5) --> %d\n", v32)
+	v32 = i32.DivSigned(100, 20)
+	fmt.Printf("-- Asserting return... DivSigned(100, 20) --> %d\n", v32)
 	v32 = i32.NestedLoop(5, 7)
 	fmt.Printf("-- Asserting return... NestedLoop(5, 7) --> %d\n", v32)
 	v32 = mem.F(6)

@@ -26,13 +26,26 @@ var binOpNames = [...]string{
 	binOpAdd: "add",
 	binOpSub: "sub",
 	binOpMul: "mul",
-	binOpDiv: "div_s",
+	binOpDiv: "div",
 	binOpEq:  "eq",
 	binOpNe:  "ne",
-	binOpLt:  "lt_s", // TODO: for floats it should be "lt" and for unsigned, it should be "lt_u".
-	binOpLe:  "le_s",
-	binOpGt:  "gt_s",
-	binOpGe:  "ge_s",
+	binOpLt:  "lt", // TODO: for floats it should be "lt" and for unsigned, it should be "lt_u".
+	binOpLe:  "le",
+	binOpGt:  "gt",
+	binOpGe:  "ge",
+}
+
+var binOpWithSign = [...]bool{
+	binOpAdd: false,
+	binOpSub: false,
+	binOpMul: false,
+	binOpDiv: true,
+	binOpEq:  false,
+	binOpNe:  false,
+	binOpLt:  true,
+	binOpLe:  true,
+	binOpGt:  true,
+	binOpGe:  true,
 }
 
 var binOpMapping = [...]BinOp{
@@ -322,7 +335,15 @@ func (b *WasmBinOp) getType() WasmType {
 func (b *WasmBinOp) print(writer FormattingWriter) {
 	writer.PrintfIndent(b.getIndent(), "(")
 	b.t.print(writer)
-	writer.Printf(".%s\n", binOpNames[b.op])
+	writer.Printf(".%s", binOpNames[b.op])
+	if binOpWithSign[b.op] {
+		if b.t.isSigned() {
+			writer.Printf("_s")
+		} else {
+			writer.Printf("_u")
+		}
+	}
+	writer.Printf("\n")
 	b.x.print(writer)
 	b.y.print(writer)
 	writer.PrintfIndent(b.getIndent(), ") ;; bin op %s\n", binOpNames[b.op])

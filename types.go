@@ -10,6 +10,7 @@ type WasmType interface {
 	getName() string
 	getSize() int
 	getAlign() int
+	isSigned() bool
 	print(writer FormattingWriter)
 }
 
@@ -22,6 +23,7 @@ type WasmTypeBase struct {
 // type: i32 | i64 | f32 | f64
 type WasmTypeScalar struct {
 	WasmTypeBase
+	signed bool
 }
 
 type WasmField struct {
@@ -59,8 +61,16 @@ func (t *WasmTypeBase) setAlign(align int) {
 	t.align = align
 }
 
+func (t *WasmTypeScalar) isSigned() bool {
+	return t.signed
+}
+
 func (t *WasmTypeScalar) print(writer FormattingWriter) {
 	writer.Printf("%s", t.name)
+}
+
+func (t *WasmTypeStruct) isSigned() bool {
+	return false
 }
 
 func (t *WasmTypeStruct) print(writer FormattingWriter) {
@@ -76,10 +86,17 @@ func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScal
 		t.setName("i32")
 		t.setSize(32)
 		t.setAlign(32)
+		t.signed = true
 	case "int64":
 		t.setName("i64")
 		t.setSize(64)
 		t.setAlign(64)
+		t.signed = true
+	case "uint32":
+		t.setName("i32")
+		t.setSize(32)
+		t.setAlign(32)
+		t.signed = false
 	}
 	return t, nil
 }
