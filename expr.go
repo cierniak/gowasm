@@ -247,6 +247,20 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 	if !ok {
 		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, s.f.fset))
 	}
+	switch v := v.(type) {
+	default:
+		return nil, fmt.Errorf("unimplemented variable kind: %v", v)
+	case *WasmGlobalVar:
+		g := &WasmGetGlobal{
+			astIdent: ident,
+			def:      v,
+			f:        s.f,
+		}
+		g.setIndent(indent)
+		return g, nil
+	case *WasmLocal:
+	case *WasmParam:
+	}
 	g := &WasmGetLocal{
 		astIdent: ident,
 		def:      v,

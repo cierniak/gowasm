@@ -181,6 +181,24 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 	if err != nil {
 		return nil, err
 	}
+	return s.createSetVar(v, rhs, stmt, indent)
+}
+
+func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.Stmt, indent int) (WasmExpression, error) {
+	switch v := v.(type) {
+	default:
+		return nil, fmt.Errorf("unimplemented variable kind in SetVar: %v", v)
+	case *WasmGlobalVar:
+		sg := &WasmSetGlobal{
+			lhs:  v,
+			rhs:  rhs,
+			stmt: stmt,
+		}
+		sg.setIndent(indent)
+		return sg, nil
+	case *WasmLocal:
+	case *WasmParam:
+	}
 	sl := &WasmSetLocal{
 		lhs:  v,
 		rhs:  rhs,
@@ -327,13 +345,7 @@ func (s *WasmScope) parseIncDecStmt(stmt *ast.IncDecStmt, indent int) (WasmExpre
 			return nil, fmt.Errorf("error in IncDecStmt: %v", err)
 		}
 
-		sl := &WasmSetLocal{
-			lhs:  v,
-			rhs:  rhs,
-			stmt: stmt,
-		}
-		sl.setIndent(indent)
-		return sl, nil
+		return s.createSetVar(v, rhs, stmt, indent)
 	}
 	return nil, fmt.Errorf("not implemented: IncDecStmt")
 }

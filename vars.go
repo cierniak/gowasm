@@ -12,6 +12,21 @@ type WasmGlobalVar struct {
 	addr int32
 }
 
+type WasmGetGlobal struct {
+	WasmExprBase
+	astIdent *ast.Ident
+	def      WasmVariable
+	f        *WasmFunc
+	t        WasmType
+}
+
+type WasmSetGlobal struct {
+	WasmExprBase
+	lhs  WasmVariable
+	rhs  WasmExpression
+	stmt ast.Stmt
+}
+
 func (v *WasmGlobalVar) print(writer FormattingWriter) {
 	writer.Printf(";; global variable %s\n", v.getName())
 }
@@ -22,6 +37,36 @@ func (v *WasmGlobalVar) getType() WasmType {
 
 func (v *WasmGlobalVar) getName() string {
 	return v.name
+}
+
+func (g *WasmGetGlobal) print(writer FormattingWriter) {
+	writer.PrintfIndent(g.getIndent(), "(get_global %s)\n", g.def.getName())
+}
+
+func (g *WasmGetGlobal) getType() WasmType {
+	return g.f.module.variables[g.astIdent.Obj].getType()
+}
+
+func (g *WasmGetGlobal) getNode() ast.Node {
+	return nil
+}
+
+func (s *WasmSetGlobal) print(writer FormattingWriter) {
+	writer.PrintfIndent(s.getIndent(), "(set_global %s\n", s.lhs.getName())
+	s.rhs.print(writer)
+	writer.PrintfIndent(s.getIndent(), ") ;; set_global %s\n", s.lhs.getName())
+}
+
+func (s *WasmSetGlobal) getType() WasmType {
+	return s.lhs.getType()
+}
+
+func (s *WasmSetGlobal) getNode() ast.Node {
+	if s.stmt == nil {
+		return nil
+	} else {
+		return s.stmt
+	}
 }
 
 func (m *WasmModule) parseAstVarDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmVariable, error) {
