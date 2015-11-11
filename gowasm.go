@@ -64,6 +64,11 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 				if err != nil {
 					return nil, err
 				}
+			case token.VAR:
+				_, err := m.parseAstVarDecl(decl, fset)
+				if err != nil {
+					return nil, err
+				}
 			}
 		case *ast.FuncDecl:
 			fn, err := m.parseAstFuncDecl(decl, fset, m.indent+1)

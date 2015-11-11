@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"gowasm/rt/gc"
 	"gowasm/tests/fac"
 	"gowasm/tests/i32"
 	"gowasm/tests/mem"
@@ -24,5 +25,9 @@ func main() {
 	fmt.Printf("-- Asserting return... NestedLoop(5, 7) --> %d\n", v32)
 	v32 = mem.F(6)
 	fmt.Printf("-- Asserting return... F(6) --> %d\n", v32)
+	v32 = gc.Alloc(128, 64)
+	fmt.Printf("-- Asserting return... gc.Alloc(128, 64) --> %d\n", v32)
+	v32 = gc.Alloc(64, 32)
+	fmt.Printf("-- Asserting return... gc.Alloc(64, 32) --> %d\n", v32)
 	fmt.Printf("Tests complete\n")
 }
