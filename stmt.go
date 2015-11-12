@@ -100,6 +100,8 @@ func (s *WasmScope) parseStmt(stmt ast.Stmt, indent int) (WasmExpression, error)
 		panic(fmt.Errorf("unimplemented statement: %v", stmt))
 	case *ast.AssignStmt:
 		return s.parseAssignStmt(stmt, indent)
+	case *ast.BlockStmt:
+		return s.parseBlockStmt(stmt, indent)
 	case *ast.ExprStmt:
 		return s.parseExprStmt(stmt, indent)
 	case *ast.ForStmt:
@@ -322,8 +324,13 @@ func (s *WasmScope) parseIfStmt(stmt *ast.IfStmt, indent int) (WasmExpression, e
 	if stmt.Init != nil {
 		return nil, fmt.Errorf("unimplemented IfStmt with an init")
 	}
+	var elseStmt WasmExpression
+	var err error
 	if stmt.Else != nil {
-		return nil, fmt.Errorf("unimplemented IfStmt with an else")
+		elseStmt, err = s.parseStmt(stmt.Else, indent+1)
+		if err != nil {
+			return nil, fmt.Errorf("error in the else statement: %v", err)
+		}
 	}
 	cond, err := s.parseExpr(stmt.Cond, nil, indent+1)
 	if err != nil {
@@ -333,7 +340,7 @@ func (s *WasmScope) parseIfStmt(stmt *ast.IfStmt, indent int) (WasmExpression, e
 	if err != nil {
 		return nil, fmt.Errorf("error in the block of an IfStmt: %v", err)
 	}
-	i, err := s.createIf(cond, body, nil, indent)
+	i, err := s.createIf(cond, body, elseStmt, indent)
 	if err != nil {
 		return nil, fmt.Errorf("error creating an IfStmt: %v", err)
 	}

@@ -54,6 +54,7 @@ func DivUnsigned(a, b uint32) uint32 {
 func DistanceUnsigned(a, b uint32) uint32 {
 	if a > b {
 		return a - b
+	} else {
+		return b - a
 	}
-	return b - a
 }
