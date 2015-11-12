@@ -71,11 +71,15 @@ type WasmExpression interface {
 	setIndent(indent int)
 	getParent() WasmExpression
 	setParent(parent WasmExpression)
+	getComment() string
+	setComment(comment string)
 }
 
 type WasmExprBase struct {
-	indent int
-	parent WasmExpression
+	indent  int
+	parent  WasmExpression
+	astNode ast.Node
+	comment string
 }
 
 // value: <int> | <float>
@@ -141,6 +145,29 @@ func (e *WasmExprBase) getParent() WasmExpression {
 
 func (e *WasmExprBase) setParent(parent WasmExpression) {
 	e.parent = parent
+}
+
+func (e *WasmExprBase) getNode() ast.Node {
+	return e.astNode
+}
+
+func (e *WasmExprBase) setNode(node ast.Node) {
+	e.astNode = node
+}
+
+func (e *WasmExprBase) getComment() string {
+	var result string
+	if e.comment != "" || e.astNode != nil {
+		result = " ;; "
+	}
+	if e.comment != "" {
+		result += e.comment
+	}
+	return result
+}
+
+func (e *WasmExprBase) setComment(comment string) {
+	e.comment = comment
 }
 
 func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (WasmExpression, error) {
@@ -297,6 +324,10 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
 		}
 		l, err := s.createLoad(addr, v.getType(), indent)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't create a load for global %s", v.getName())
+		}
+		l.setComment(fmt.Sprintf("get_global %s", v.getName()))
 		g := &WasmGetGlobal{
 			astIdent: ident,
 			def:      v,
@@ -398,7 +429,7 @@ func (l *WasmLoad) print(writer FormattingWriter) {
 	} else {
 		panic(fmt.Errorf("uimplemented load type: %v", l.getType()))
 	}
-	writer.PrintfIndent(l.getIndent(), "(%s.load\n", ts)
+	writer.PrintfIndent(l.getIndent(), "(%s.load%s\n", ts, l.getComment())
 	l.addr.print(writer)
 	writer.PrintfIndent(l.getIndent(), ") ;; load\n")
 }
@@ -418,9 +449,8 @@ func (s *WasmStore) print(writer FormattingWriter) {
 	} else {
 		panic(fmt.Errorf("uimplemented store type: %v", s.getType()))
 	}
-	writer.PrintfIndent(s.getIndent(), "(%s.store\n", ts)
+	writer.PrintfIndent(s.getIndent(), "(%s.store%s\n", ts, s.getComment())
 	s.addr.print(writer)
-	writer.PrintfIndent(s.getIndent(), "  ;; value will go here\n")
 	s.val.print(writer)
 	writer.PrintfIndent(s.getIndent(), ") ;; load\n")
 }

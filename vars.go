@@ -43,7 +43,6 @@ func (v *WasmGlobalVar) getName() string {
 }
 
 func (g *WasmGetGlobal) print(writer FormattingWriter) {
-	writer.PrintfIndent(g.getIndent(), ";;(get_global %s)\n", g.def.getName())
 	g.load.print(writer)
 }
 
@@ -56,7 +55,6 @@ func (g *WasmGetGlobal) getNode() ast.Node {
 }
 
 func (s *WasmSetGlobal) print(writer FormattingWriter) {
-	writer.PrintfIndent(s.getIndent(), ";; (set_global %s\n", s.lhs.getName())
 	s.store.print(writer)
 }
 

@@ -210,6 +210,10 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
 		}
 		store, err := s.createStore(addr, rhs, t, indent)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't generate a store for global %s", v.getName())
+		}
+		store.setComment(fmt.Sprintf("set_global %s", v.getName()))
 		sg := &WasmSetGlobal{
 			lhs:   v,
 			rhs:   rhs,
