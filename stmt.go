@@ -184,15 +184,35 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 	return s.createSetVar(v, rhs, stmt, indent)
 }
 
+func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, indent int) (WasmExpression, error) {
+	store := &WasmStore{
+		addr: addr,
+		val:  val,
+		t:    t,
+	}
+	store.setIndent(indent)
+	return store, nil
+}
+
 func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.Stmt, indent int) (WasmExpression, error) {
 	switch v := v.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented variable kind in SetVar: %v", v)
 	case *WasmGlobalVar:
+		t, err := s.f.module.convertAstTypeNameToWasmType("int32")
+		if err != nil {
+			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
+		}
+		addr, err := s.createLiteral(fmt.Sprintf("%d", v.addr), t, indent+1)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
+		}
+		store, err := s.createStore(addr, rhs, t, indent)
 		sg := &WasmSetGlobal{
-			lhs:  v,
-			rhs:  rhs,
-			stmt: stmt,
+			lhs:   v,
+			rhs:   rhs,
+			stmt:  stmt,
+			store: store,
 		}
 		sg.setIndent(indent)
 		return sg, nil

@@ -112,6 +112,21 @@ type WasmBinOp struct {
 	t  WasmType
 }
 
+// ( <type>.load((8|16)_<sign>)? <offset>? <align>? <expr> )
+type WasmLoad struct {
+	WasmExprBase
+	addr WasmExpression
+	t    WasmType
+}
+
+// ( <type>.store <offset>? <align>? <expr> <expr> )
+type WasmStore struct {
+	WasmExprBase
+	addr WasmExpression
+	val  WasmExpression
+	t    WasmType
+}
+
 func (e *WasmExprBase) getIndent() int {
 	return e.indent
 }
@@ -255,6 +270,15 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 	return nil, fmt.Errorf("unimplemented call expression at %s", positionString(call.Lparen, s.f.fset))
 }
 
+func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (WasmExpression, error) {
+	l := &WasmLoad{
+		addr: addr,
+		t:    t,
+	}
+	l.setIndent(indent)
+	return l, nil
+}
+
 func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
 	v, ok := s.f.module.variables[ident.Obj]
 	if !ok {
@@ -264,10 +288,20 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 	default:
 		return nil, fmt.Errorf("unimplemented variable kind: %v", v)
 	case *WasmGlobalVar:
+		t, err := s.f.module.convertAstTypeNameToWasmType("int32")
+		if err != nil {
+			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
+		}
+		addr, err := s.createLiteral(fmt.Sprintf("%d", v.addr), t, indent+1)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
+		}
+		l, err := s.createLoad(addr, v.getType(), indent)
 		g := &WasmGetGlobal{
 			astIdent: ident,
 			def:      v,
 			f:        s.f,
+			load:     l,
 		}
 		g.setIndent(indent)
 		return g, nil
@@ -350,6 +384,48 @@ func (b *WasmBinOp) print(writer FormattingWriter) {
 }
 
 func (b *WasmBinOp) getNode() ast.Node {
+	return nil
+}
+
+func (l *WasmLoad) getType() WasmType {
+	return l.t
+}
+
+func (l *WasmLoad) print(writer FormattingWriter) {
+	var ts string
+	if l.getType().getSize() == 32 {
+		ts = "i32"
+	} else {
+		panic(fmt.Errorf("uimplemented load type: %v", l.getType()))
+	}
+	writer.PrintfIndent(l.getIndent(), "(%s.load\n", ts)
+	l.addr.print(writer)
+	writer.PrintfIndent(l.getIndent(), ") ;; load\n")
+}
+
+func (l *WasmLoad) getNode() ast.Node {
+	return nil
+}
+
+func (s *WasmStore) getType() WasmType {
+	return s.t
+}
+
+func (s *WasmStore) print(writer FormattingWriter) {
+	var ts string
+	if s.getType().getSize() == 32 {
+		ts = "i32"
+	} else {
+		panic(fmt.Errorf("uimplemented store type: %v", s.getType()))
+	}
+	writer.PrintfIndent(s.getIndent(), "(%s.store\n", ts)
+	s.addr.print(writer)
+	writer.PrintfIndent(s.getIndent(), "  ;; value will go here\n")
+	s.val.print(writer)
+	writer.PrintfIndent(s.getIndent(), ") ;; load\n")
+}
+
+func (s *WasmStore) getNode() ast.Node {
 	return nil
 }
 

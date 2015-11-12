@@ -19,13 +19,15 @@ type WasmGetGlobal struct {
 	def      WasmVariable
 	f        *WasmFunc
 	t        WasmType
+	load     WasmExpression
 }
 
 type WasmSetGlobal struct {
 	WasmExprBase
-	lhs  WasmVariable
-	rhs  WasmExpression
-	stmt ast.Stmt
+	lhs   WasmVariable
+	rhs   WasmExpression
+	stmt  ast.Stmt
+	store WasmExpression
 }
 
 func (v *WasmGlobalVar) print(writer FormattingWriter) {
@@ -41,7 +43,8 @@ func (v *WasmGlobalVar) getName() string {
 }
 
 func (g *WasmGetGlobal) print(writer FormattingWriter) {
-	writer.PrintfIndent(g.getIndent(), "(get_global %s)\n", g.def.getName())
+	writer.PrintfIndent(g.getIndent(), ";;(get_global %s)\n", g.def.getName())
+	g.load.print(writer)
 }
 
 func (g *WasmGetGlobal) getType() WasmType {
@@ -53,9 +56,8 @@ func (g *WasmGetGlobal) getNode() ast.Node {
 }
 
 func (s *WasmSetGlobal) print(writer FormattingWriter) {
-	writer.PrintfIndent(s.getIndent(), "(set_global %s\n", s.lhs.getName())
-	s.rhs.print(writer)
-	writer.PrintfIndent(s.getIndent(), ") ;; set_global %s\n", s.lhs.getName())
+	writer.PrintfIndent(s.getIndent(), ";; (set_global %s\n", s.lhs.getName())
+	s.store.print(writer)
 }
 
 func (s *WasmSetGlobal) getType() WasmType {
@@ -99,9 +101,9 @@ func (m *WasmModule) parseAstVarSpec(spec *ast.ValueSpec, fset *token.FileSet) (
 		indent: 1,
 	}
 	m.variables[ident.Obj] = v
-	fmt.Printf("parseAstVarSpec, v: %v\n", v)
 	m.globalVarAddr += t.getSize()
 	if name == "freePointer" {
+		// This is a magic name of a global variable used for allocating memory from the heap.
 		m.freePtrAddr = v.addr
 	}
 	return v, nil

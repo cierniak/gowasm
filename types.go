@@ -77,11 +77,11 @@ func (t *WasmTypeStruct) print(writer FormattingWriter) {
 	writer.Printf("%s", t.name)
 }
 
-func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScalar, error) {
+func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar, error) {
 	t := &WasmTypeScalar{}
-	switch astType.Name {
+	switch name {
 	default:
-		return nil, fmt.Errorf("unimplemented scalar type: '%s'", astType.Name)
+		return nil, fmt.Errorf("unimplemented scalar type: '%s'", name)
 	case "int32":
 		t.setName("i32")
 		t.setSize(32)
@@ -99,6 +99,10 @@ func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScal
 		t.signed = false
 	}
 	return t, nil
+}
+
+func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScalar, error) {
+	return m.convertAstTypeNameToWasmType(astType.Name)
 }
 
 func (m *WasmModule) parseAstType(astType ast.Expr) (WasmType, error) {
