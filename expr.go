@@ -67,12 +67,15 @@ type WasmExpression interface {
 	print(writer FormattingWriter)
 	getType() WasmType
 	getNode() ast.Node
+	setNode(node ast.Node)
 	getIndent() int
 	setIndent(indent int)
 	getParent() WasmExpression
 	setParent(parent WasmExpression)
 	getComment() string
 	setComment(comment string)
+	getScope() *WasmScope
+	setScope(scope *WasmScope)
 }
 
 type WasmExprBase struct {
@@ -80,6 +83,7 @@ type WasmExprBase struct {
 	parent  WasmExpression
 	astNode ast.Node
 	comment string
+	scope   *WasmScope
 }
 
 // value: <int> | <float>
@@ -160,7 +164,15 @@ func (e *WasmExprBase) getComment() string {
 	if e.comment != "" || e.astNode != nil {
 		result = " ;; "
 	}
+	var src string
+	if e.astNode != nil {
+		src = e.scope.f.getSingleLineGoSource(e.astNode)
+		result += src
+	}
 	if e.comment != "" {
+		if src != "" {
+			result += " // "
+		}
 		result += e.comment
 	}
 	return result
@@ -168,6 +180,14 @@ func (e *WasmExprBase) getComment() string {
 
 func (e *WasmExprBase) setComment(comment string) {
 	e.comment = comment
+}
+
+func (e *WasmExprBase) getScope() *WasmScope {
+	return e.scope
+}
+
+func (e *WasmExprBase) setScope(scope *WasmScope) {
+	e.scope = scope
 }
 
 func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (WasmExpression, error) {
@@ -224,6 +244,7 @@ func (s *WasmScope) createBinaryExpr(x, y WasmExpression, op BinOp, ty WasmType,
 		y:  y,
 	}
 	b.setIndent(indent)
+	b.setScope(s)
 	return b, nil
 }
 
@@ -240,7 +261,12 @@ func (s *WasmScope) parseBinaryExpr(expr *ast.BinaryExpr, typeHint WasmType, ind
 		return nil, fmt.Errorf("unsupported binary op: %v", expr.Op)
 	}
 	xt := x.getType()
-	return s.createBinaryExpr(x, y, binOpMapping[expr.Op], xt, indent)
+	result, err := s.createBinaryExpr(x, y, binOpMapping[expr.Op], xt, indent)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a binary expression: %v", err)
+	}
+	result.setNode(expr)
+	return result, nil
 }
 
 func (s *WasmScope) parseArgs(args []ast.Expr, indent int) []WasmExpression {
@@ -408,7 +434,7 @@ func (b *WasmBinOp) print(writer FormattingWriter) {
 			writer.Printf("_u")
 		}
 	}
-	writer.Printf("\n")
+	writer.Printf("%s\n", b.getComment())
 	b.x.print(writer)
 	b.y.print(writer)
 	writer.PrintfIndent(b.getIndent(), ") ;; bin op %s\n", binOpNames[b.op])
@@ -434,10 +460,6 @@ func (l *WasmLoad) print(writer FormattingWriter) {
 	writer.PrintfIndent(l.getIndent(), ") ;; load\n")
 }
 
-func (l *WasmLoad) getNode() ast.Node {
-	return nil
-}
-
 func (s *WasmStore) getType() WasmType {
 	return s.t
 }
@@ -455,20 +477,12 @@ func (s *WasmStore) print(writer FormattingWriter) {
 	writer.PrintfIndent(s.getIndent(), ") ;; load\n")
 }
 
-func (s *WasmStore) getNode() ast.Node {
-	return nil
-}
-
 func (g *WasmGetLocal) print(writer FormattingWriter) {
 	writer.PrintfIndent(g.getIndent(), "(get_local %s)\n", g.def.getName())
 }
 
 func (g *WasmGetLocal) getType() WasmType {
 	return g.f.module.variables[g.astIdent.Obj].getType()
-}
-
-func (g *WasmGetLocal) getNode() ast.Node {
-	return nil
 }
 
 func (c *WasmCall) getType() WasmType {

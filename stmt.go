@@ -193,6 +193,7 @@ func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, indent int
 		t:    t,
 	}
 	store.setIndent(indent)
+	store.setScope(s)
 	return store, nil
 }
 
@@ -213,6 +214,7 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 		if err != nil {
 			return nil, fmt.Errorf("couldn't generate a store for global %s", v.getName())
 		}
+		store.setNode(stmt)
 		store.setComment(fmt.Sprintf("set_global %s", v.getName()))
 		sg := &WasmSetGlobal{
 			lhs:   v,

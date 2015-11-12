@@ -139,6 +139,17 @@ func (f *WasmFunc) print(writer FormattingWriter) {
 	writer.PrintfIndent(f.indent, ") ;; func %s\n", f.name)
 }
 
+func (f *WasmFunc) getSingleLineGoSource(node ast.Node) string {
+	var buf bytes.Buffer
+	printer.Fprint(&buf, f.fset, node)
+	s := buf.String()
+	if strings.Contains(s, "\n") {
+		return ""
+	} else {
+		return s
+	}
+}
+
 func (f *WasmFunc) printGoSource(bodyIndent int, node ast.Node, writer FormattingWriter) {
 	if node == nil || node.Pos() == 0 {
 		return
