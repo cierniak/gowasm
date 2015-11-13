@@ -30,6 +30,7 @@ type WasmModule struct {
 	files         []*WasmGoSourceFile
 	functions     []*WasmFunc
 	functionMap   map[*ast.FuncDecl]*WasmFunc
+	functionMap2  map[*ast.Object]*WasmFunc
 	types         map[string]WasmType
 	variables     map[*ast.Object]WasmVariable
 	imports       map[string]*WasmImport
@@ -40,9 +41,10 @@ type WasmModule struct {
 }
 
 type WasmGoSourceFile struct {
-	f      *ast.File
-	fset   *token.FileSet
-	module *WasmModule
+	astFile *ast.File
+	fset    *token.FileSet
+	module  *WasmModule
+	pkgName string
 }
 
 func NewWasmModuleLinker() WasmModuleLinker {
@@ -51,6 +53,7 @@ func NewWasmModuleLinker() WasmModuleLinker {
 		files:         make([]*WasmGoSourceFile, 0, 10),
 		functions:     make([]*WasmFunc, 0, 10),
 		functionMap:   make(map[*ast.FuncDecl]*WasmFunc),
+		functionMap2:  make(map[*ast.Object]*WasmFunc),
 		types:         make(map[string]WasmType),
 		variables:     make(map[*ast.Object]WasmVariable),
 		imports:       make(map[string]*WasmImport),
@@ -63,15 +66,32 @@ func NewWasmModuleLinker() WasmModuleLinker {
 
 func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 	file := &WasmGoSourceFile{
-		f:      f,
-		fset:   fset,
-		module: m,
+		astFile: f,
+		fset:    fset,
+		module:  m,
 	}
+	file.setPackageName()
+	m.files = append(m.files, file)
 	if ident := f.Name; ident != nil {
 		m.name = ident.Name
 		m.namePos = ident.NamePos
 	}
 
+	// Pass 1: create symbol table
+	for _, decl := range f.Decls {
+		switch decl := decl.(type) {
+		case *ast.FuncDecl:
+			fn, err := file.parseAstFuncDeclPass1(decl, fset, m.indent+1)
+			if err != nil {
+				return err
+			}
+			m.functions = append(m.functions, fn)
+			m.functionMap[decl] = fn
+			m.functionMap2[decl.Name.Obj] = fn
+		}
+	}
+
+	// Pass 2: generate code
 	for _, decl := range f.Decls {
 		switch decl := decl.(type) {
 		default:
@@ -92,12 +112,11 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 				}
 			}
 		case *ast.FuncDecl:
-			fn, err := file.parseAstFuncDecl(decl, fset, m.indent+1)
-			if err != nil {
-				return err
+			fn, ok := m.functionMap[decl]
+			if !ok {
+				return fmt.Errorf("couldn't find function %s in the symbol table", decl.Name.Name)
 			}
-			m.functions = append(m.functions, fn)
-			m.functionMap[decl] = fn
+			fn.parseAstFuncDecl()
 		}
 	}
 	return nil
@@ -171,10 +190,17 @@ func (m *WasmModule) printExports(writer FormattingWriter, indent int) {
 	}
 }
 
+func (file *WasmGoSourceFile) print(writer FormattingWriter) {
+	writer.PrintfIndent(1, ";; File %s\n", file.pkgName)
+}
+
 func (m *WasmModule) print(writer FormattingWriter) {
 	writer.Printf("(module\n")
 	bodyIndent := m.indent + 1
 	writer.PrintfIndent(bodyIndent, ";; Go package '%s'\n", m.name)
+	for _, f := range m.files {
+		f.print(writer)
+	}
 	m.printMemory(writer)
 	m.printImports(writer)
 	m.printGlobalVars(writer)
@@ -205,4 +231,16 @@ func astNameToWASM(astName string, s *WasmScope) string {
 func positionString(pos token.Pos, fset *token.FileSet) string {
 	position := fset.File(pos).PositionFor(pos, false)
 	return fmt.Sprintf("[%s:%d:%d]", position.Filename, position.Line, position.Offset)
+}
+
+func (file *WasmGoSourceFile) setPackageName() {
+	pos := file.astFile.Package
+	position := file.fset.File(pos).PositionFor(pos, false)
+	path := position.Filename
+	lastSlash := strings.LastIndex(path, "/")
+	path = path[:lastSlash]
+	if strings.HasPrefix(path, "src/") {
+		path = path[4:]
+	}
+	file.pkgName = strings.Replace(path, "/", "_", -1)
 }

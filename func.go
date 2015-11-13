@@ -48,12 +48,7 @@ type WasmResult struct {
 	t        WasmType
 }
 
-func (file *WasmGoSourceFile) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, indent int) (*WasmFunc, error) {
-	if cg := funcDecl.Doc; cg != nil {
-		for _, c := range cg.List {
-			file.parseComment(c.Text)
-		}
-	}
+func (file *WasmGoSourceFile) parseAstFuncDeclPass1(funcDecl *ast.FuncDecl, fset *token.FileSet, indent int) (*WasmFunc, error) {
 	f := &WasmFunc{
 		funcDecl: funcDecl,
 		fset:     fset,
@@ -64,9 +59,19 @@ func (file *WasmGoSourceFile) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *tok
 		locals:   make([]*WasmLocal, 0, 10),
 	}
 	if ident := funcDecl.Name; ident != nil {
-		f.name = astNameToWASM(ident.Name, nil)
+		f.name = astNameToWASM(file.pkgName+"_"+ident.Name, nil)
 		f.origName = ident.Name
 		f.namePos = ident.NamePos
+	}
+	return f, nil
+}
+
+func (f *WasmFunc) parseAstFuncDecl() (*WasmFunc, error) {
+	funcDecl := f.funcDecl
+	if cg := funcDecl.Doc; cg != nil {
+		for _, c := range cg.List {
+			f.file.parseComment(c.Text)
+		}
 	}
 	if funcDecl.Type != nil {
 		f.parseType(funcDecl.Type)
