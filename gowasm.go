@@ -242,5 +242,5 @@ func (file *WasmGoSourceFile) setPackageName() {
 	if strings.HasPrefix(path, "src/") {
 		path = path[4:]
 	}
-	file.pkgName = strings.Replace(path, "/", "_", -1)
+	file.pkgName = path
 }

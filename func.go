@@ -63,6 +63,10 @@ func (file *WasmGoSourceFile) parseAstFuncDeclPass1(funcDecl *ast.FuncDecl, fset
 		f.origName = ident.Name
 		f.namePos = ident.NamePos
 	}
+	if funcDecl.Type != nil {
+		f.parseType(funcDecl.Type)
+	}
+	f.scope = f.createScope(fmt.Sprintf("function_%s", f.origName))
 	return f, nil
 }
 
@@ -73,10 +77,6 @@ func (f *WasmFunc) parseAstFuncDecl() (*WasmFunc, error) {
 			f.file.parseComment(c.Text)
 		}
 	}
-	if funcDecl.Type != nil {
-		f.parseType(funcDecl.Type)
-	}
-	f.scope = f.createScope(fmt.Sprintf("function_%s", f.origName))
 	err := f.scope.parseStatementList(funcDecl.Body.List, f.indent+1)
 	return f, err
 }
