@@ -65,7 +65,8 @@ func Compile(fileName string, writer FormattingWriter) {
 		ast.Print(fset, f)
 	}
 
-	m, err := parseAstFile(f, fset)
+	m := NewWasmModuleLinker()
+	err = m.addAstFile(f, fset)
 	if err != nil {
 		panic(err)
 	}

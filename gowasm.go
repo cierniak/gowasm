@@ -11,6 +11,11 @@ import (
 	"unicode/utf8"
 )
 
+type WasmModuleLinker interface {
+	addAstFile(f *ast.File, fset *token.FileSet) error
+	print(writer FormattingWriter)
+}
+
 type WasmVariable interface {
 	print(writer FormattingWriter)
 	getType() WasmType
@@ -35,10 +40,8 @@ type WasmModule struct {
 	freePtrAddr   int32
 }
 
-func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
+func NewWasmModuleLinker() WasmModuleLinker {
 	m := &WasmModule{
-		f:             f,
-		fset:          fset,
 		indent:        0,
 		functions:     make([]*WasmFunc, 0, 10),
 		functionMap:   make(map[*ast.FuncDecl]*WasmFunc),
@@ -49,6 +52,12 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 		invoke:        make([]string, 0, 10),
 		globalVarAddr: 32,
 	}
+	return m
+}
+
+func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
+	m.f = f
+	m.fset = fset
 	if ident := f.Name; ident != nil {
 		m.name = ident.Name
 		m.namePos = ident.NamePos
@@ -57,7 +66,7 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 	for _, decl := range f.Decls {
 		switch decl := decl.(type) {
 		default:
-			return nil, fmt.Errorf("unimplemented declaration type: %v at %s", decl, positionString(decl.Pos(), fset))
+			return fmt.Errorf("unimplemented declaration type: %v at %s", decl, positionString(decl.Pos(), fset))
 		case *ast.GenDecl:
 			switch decl.Tok {
 			default:
@@ -65,24 +74,24 @@ func parseAstFile(f *ast.File, fset *token.FileSet) (*WasmModule, error) {
 			case token.TYPE:
 				_, err := m.parseAstTypeDecl(decl, fset)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			case token.VAR:
 				_, err := m.parseAstVarDecl(decl, fset)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			}
 		case *ast.FuncDecl:
 			fn, err := m.parseAstFuncDecl(decl, fset, m.indent+1)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			m.functions = append(m.functions, fn)
 			m.functionMap[decl] = fn
 		}
 	}
-	return m, nil
+	return nil
 }
 
 func (m *WasmModule) parseComment(c string) {
