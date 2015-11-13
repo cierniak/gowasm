@@ -202,5 +202,5 @@ func (v *WasmLocal) print(writer FormattingWriter) {
 		writer.Printf("%s ", v.name)
 	}
 	v.t.print(writer)
-	writer.Printf(")\n")
+	writer.Printf(") ;; %s\n", v.astIdent.Name)
 }

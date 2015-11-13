@@ -233,6 +233,8 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 		stmt: stmt,
 	}
 	sl.setIndent(indent)
+	sl.setScope(s)
+	sl.setNode(stmt)
 	return sl, nil
 }
 

@@ -314,6 +314,8 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 
 		}
 		c.setIndent(indent)
+		c.setNode(call)
+		c.setScope(s)
 		return c, nil
 	case *ast.SelectorExpr:
 		if isWASMRuntimePackage(fun.X) {
@@ -371,6 +373,8 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 		f:        s.f,
 	}
 	g.setIndent(indent)
+	g.setScope(s)
+	g.setNode(ident)
 	return g, nil
 }
 
@@ -478,7 +482,7 @@ func (s *WasmStore) print(writer FormattingWriter) {
 }
 
 func (g *WasmGetLocal) print(writer FormattingWriter) {
-	writer.PrintfIndent(g.getIndent(), "(get_local %s)\n", g.def.getName())
+	writer.PrintfIndent(g.getIndent(), "(get_local %s)%s\n", g.def.getName(), g.getComment())
 }
 
 func (g *WasmGetLocal) getType() WasmType {
@@ -493,7 +497,7 @@ func (c *WasmCall) getType() WasmType {
 }
 
 func (c *WasmCall) print(writer FormattingWriter) {
-	writer.PrintfIndent(c.getIndent(), "(call %s\n", c.name)
+	writer.PrintfIndent(c.getIndent(), "(call %s%s\n", c.name, c.getComment())
 	for _, arg := range c.args {
 		arg.print(writer)
 	}
