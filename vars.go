@@ -70,7 +70,7 @@ func (s *WasmSetGlobal) getNode() ast.Node {
 	}
 }
 
-func (m *WasmModule) parseAstVarDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmVariable, error) {
+func (file *WasmGoSourceFile) parseAstVarDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmVariable, error) {
 	if len(decl.Specs) != 1 {
 		return nil, fmt.Errorf("unsupported variable declaration with %d specs", len(decl.Specs))
 	}
@@ -78,31 +78,31 @@ func (m *WasmModule) parseAstVarDecl(decl *ast.GenDecl, fset *token.FileSet) (Wa
 	default:
 		return nil, fmt.Errorf("unsupported variable declaration with spec: %v at %s", spec, positionString(spec.Pos(), fset))
 	case *ast.ValueSpec:
-		return m.parseAstVarSpec(spec, fset)
+		return file.parseAstVarSpec(spec, fset)
 	}
 }
 
-func (m *WasmModule) parseAstVarSpec(spec *ast.ValueSpec, fset *token.FileSet) (WasmVariable, error) {
+func (file *WasmGoSourceFile) parseAstVarSpec(spec *ast.ValueSpec, fset *token.FileSet) (WasmVariable, error) {
 	if len(spec.Names) != 1 {
 		return nil, fmt.Errorf("unsupported variable declaration with %d names", len(spec.Names))
 	}
 	ident := spec.Names[0]
 	name := ident.Name
-	t, err := m.parseAstType(spec.Type)
+	t, err := file.parseAstType(spec.Type)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported type for variable %s", name)
 	}
 	v := &WasmGlobalVar{
 		name:   name,
 		t:      t,
-		addr:   int32(m.globalVarAddr), // TODO: take alignment into account
+		addr:   int32(file.module.globalVarAddr), // TODO: take alignment into account
 		indent: 1,
 	}
-	m.variables[ident.Obj] = v
-	m.globalVarAddr += t.getSize()
+	file.module.variables[ident.Obj] = v
+	file.module.globalVarAddr += t.getSize()
 	if name == "freePointer" {
 		// This is a magic name of a global variable used for allocating memory from the heap.
-		m.freePtrAddr = v.addr
+		file.module.freePtrAddr = v.addr
 	}
 	return v, nil
 }

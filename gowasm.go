@@ -24,11 +24,10 @@ type WasmVariable interface {
 
 // module:  ( module <type>* <func>* <global>* <import>* <export>* <table>* <memory>? )
 type WasmModule struct {
-	f             *ast.File
-	fset          *token.FileSet
 	indent        int
 	name          string
 	namePos       token.Pos
+	files         []*WasmGoSourceFile
 	functions     []*WasmFunc
 	functionMap   map[*ast.FuncDecl]*WasmFunc
 	types         map[string]WasmType
@@ -40,9 +39,16 @@ type WasmModule struct {
 	freePtrAddr   int32
 }
 
+type WasmGoSourceFile struct {
+	f      *ast.File
+	fset   *token.FileSet
+	module *WasmModule
+}
+
 func NewWasmModuleLinker() WasmModuleLinker {
 	m := &WasmModule{
 		indent:        0,
+		files:         make([]*WasmGoSourceFile, 0, 10),
 		functions:     make([]*WasmFunc, 0, 10),
 		functionMap:   make(map[*ast.FuncDecl]*WasmFunc),
 		types:         make(map[string]WasmType),
@@ -56,8 +62,11 @@ func NewWasmModuleLinker() WasmModuleLinker {
 }
 
 func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
-	m.f = f
-	m.fset = fset
+	file := &WasmGoSourceFile{
+		f:      f,
+		fset:   fset,
+		module: m,
+	}
 	if ident := f.Name; ident != nil {
 		m.name = ident.Name
 		m.namePos = ident.NamePos
@@ -72,18 +81,18 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 			default:
 				fmt.Printf("Ignoring GenDecl, token: %v\n", decl.Tok)
 			case token.TYPE:
-				_, err := m.parseAstTypeDecl(decl, fset)
+				_, err := file.parseAstTypeDecl(decl, fset)
 				if err != nil {
 					return err
 				}
 			case token.VAR:
-				_, err := m.parseAstVarDecl(decl, fset)
+				_, err := file.parseAstVarDecl(decl, fset)
 				if err != nil {
 					return err
 				}
 			}
 		case *ast.FuncDecl:
-			fn, err := m.parseAstFuncDecl(decl, fset, m.indent+1)
+			fn, err := file.parseAstFuncDecl(decl, fset, m.indent+1)
 			if err != nil {
 				return err
 			}
@@ -94,20 +103,20 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 	return nil
 }
 
-func (m *WasmModule) parseComment(c string) {
+func (file *WasmGoSourceFile) parseComment(c string) {
 	pragmaPrefix := "//wasm:"
 	if strings.HasPrefix(c, pragmaPrefix) {
-		m.parsePragma(strings.TrimPrefix(c, pragmaPrefix))
+		file.parsePragma(strings.TrimPrefix(c, pragmaPrefix))
 	}
 }
 
-func (m *WasmModule) parsePragma(p string) {
+func (file *WasmGoSourceFile) parsePragma(p string) {
 	assertReturnPrefix := "assert_return "
 	invokePrefix := "invoke "
 	if strings.HasPrefix(p, assertReturnPrefix) {
-		m.assertReturn = append(m.assertReturn, strings.TrimPrefix(p, assertReturnPrefix))
+		file.module.assertReturn = append(file.module.assertReturn, strings.TrimPrefix(p, assertReturnPrefix))
 	} else if strings.HasPrefix(p, invokePrefix) {
-		m.invoke = append(m.invoke, strings.TrimPrefix(p, invokePrefix))
+		file.module.invoke = append(file.module.invoke, strings.TrimPrefix(p, invokePrefix))
 	}
 }
 
@@ -165,7 +174,7 @@ func (m *WasmModule) printExports(writer FormattingWriter, indent int) {
 func (m *WasmModule) print(writer FormattingWriter) {
 	writer.Printf("(module\n")
 	bodyIndent := m.indent + 1
-	writer.PrintfIndent(bodyIndent, ";; Go package '%s' %s\n", m.name, positionString(m.namePos, m.fset))
+	writer.PrintfIndent(bodyIndent, ";; Go package '%s'\n", m.name)
 	m.printMemory(writer)
 	m.printImports(writer)
 	m.printGlobalVars(writer)

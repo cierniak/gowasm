@@ -101,21 +101,21 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 	return t, nil
 }
 
-func (m *WasmModule) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScalar, error) {
-	return m.convertAstTypeNameToWasmType(astType.Name)
+func (file *WasmGoSourceFile) convertAstTypeToWasmType(astType *ast.Ident) (*WasmTypeScalar, error) {
+	return file.module.convertAstTypeNameToWasmType(astType.Name)
 }
 
-func (m *WasmModule) parseAstType(astType ast.Expr) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstType(astType ast.Expr) (WasmType, error) {
 	if astTypeIdent, ok := astType.(*ast.Ident); ok {
 		name := astTypeIdent.Name
-		t, ok := m.types[name]
+		t, ok := file.module.types[name]
 		if !ok {
 			var err error
-			t, err = m.convertAstTypeToWasmType(astTypeIdent)
+			t, err = file.convertAstTypeToWasmType(astTypeIdent)
 			if err != nil {
 				return nil, err
 			}
-			m.types[name] = t
+			file.module.types[name] = t
 		}
 		return t, nil
 	}
@@ -123,7 +123,7 @@ func (m *WasmModule) parseAstType(astType ast.Expr) (WasmType, error) {
 	return nil, err
 }
 
-func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmType, error) {
 	if len(decl.Specs) != 1 {
 		return nil, fmt.Errorf("unsupported type declaration with %d specs", len(decl.Specs))
 	}
@@ -131,13 +131,13 @@ func (m *WasmModule) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (W
 	default:
 		return nil, fmt.Errorf("unsupported type declaration with spec: %v at %s", spec, positionString(spec.Pos(), fset))
 	case *ast.TypeSpec:
-		return m.parseAstTypeSpec(spec, fset)
+		return file.parseAstTypeSpec(spec, fset)
 	}
 }
 
-func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (WasmType, error) {
 	name := spec.Name.Name
-	if t, ok := m.types[name]; ok {
+	if t, ok := file.module.types[name]; ok {
 		return t, nil
 	}
 	switch astType := spec.Type.(type) {
@@ -148,12 +148,12 @@ func (m *WasmModule) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (
 		st.setName(name)
 		st.setAlign(64)
 		// Insert incomplete the type declaration now to handle recursive types.
-		m.types[name] = st
-		return m.parseAstStructType(st, astType, fset)
+		file.module.types[name] = st
+		return file.parseAstStructType(st, astType, fset)
 	}
 }
 
-func (m *WasmModule) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType, fset *token.FileSet) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType, fset *token.FileSet) (WasmType, error) {
 	if astType.Fields == nil || astType.Fields.List == nil {
 		return nil, fmt.Errorf("struct types with no fields are not supported (struct %s)", t.getName())
 	}
@@ -169,7 +169,7 @@ func (m *WasmModule) parseAstStructType(t *WasmTypeStruct, astType *ast.StructTy
 			offset: offset,
 		}
 		t.fields[i] = field
-		ty, err := m.parseAstType(astField.Type)
+		ty, err := file.parseAstType(astField.Type)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing type of field %s: %v", field.name, err)
 		}

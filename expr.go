@@ -282,7 +282,7 @@ func (s *WasmScope) parseArgs(args []ast.Expr, indent int) []WasmExpression {
 }
 
 func (s *WasmScope) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, indent int) (WasmExpression, error) {
-	ty, err := s.f.module.parseAstType(fun)
+	ty, err := s.f.file.parseAstType(fun)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse type name in type conversion: %v", err)
 	}
@@ -294,7 +294,7 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 	default:
 		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, s.f.fset))
 	case *ast.Ident:
-		typ, err := s.f.module.parseAstType(fun)
+		typ, err := s.f.file.parseAstType(fun)
 		if err == nil && len(call.Args) == 1 {
 			return s.parseConvertExpr(typ.getName(), fun, call.Args[0], indent)
 		}
@@ -379,7 +379,7 @@ func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent i
 }
 
 func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
-	t, err := s.f.module.parseAstType(expr.Type)
+	t, err := s.f.file.parseAstType(expr.Type)
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
 	}

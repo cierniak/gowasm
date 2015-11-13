@@ -14,6 +14,7 @@ type WasmFunc struct {
 	funcDecl  *ast.FuncDecl
 	fset      *token.FileSet
 	module    *WasmModule
+	file      *WasmGoSourceFile
 	indent    int
 	name      string
 	origName  string
@@ -47,16 +48,17 @@ type WasmResult struct {
 	t        WasmType
 }
 
-func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, indent int) (*WasmFunc, error) {
+func (file *WasmGoSourceFile) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, indent int) (*WasmFunc, error) {
 	if cg := funcDecl.Doc; cg != nil {
 		for _, c := range cg.List {
-			m.parseComment(c.Text)
+			file.parseComment(c.Text)
 		}
 	}
 	f := &WasmFunc{
 		funcDecl: funcDecl,
 		fset:     fset,
-		module:   m,
+		module:   file.module,
+		file:     file,
 		indent:   indent,
 		params:   make([]*WasmParam, 0, 10),
 		locals:   make([]*WasmLocal, 0, 10),
@@ -77,7 +79,7 @@ func (m *WasmModule) parseAstFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSe
 func (f *WasmFunc) parseType(t *ast.FuncType) {
 	if t.Params.List != nil {
 		for _, field := range t.Params.List {
-			paramType, err := f.module.parseAstType(field.Type)
+			paramType, err := f.file.parseAstType(field.Type)
 			if err != nil {
 				panic(err)
 			}
@@ -100,7 +102,7 @@ func (f *WasmFunc) parseType(t *ast.FuncType) {
 			panic(err)
 		}
 		field := t.Results.List[0]
-		paramType, err := f.module.parseAstType(field.Type)
+		paramType, err := f.file.parseAstType(field.Type)
 		if err != nil {
 			panic(err)
 		}
