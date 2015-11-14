@@ -53,7 +53,7 @@ func (w *FormattingWriterImpl) WriteToFile(name string) (int, error) {
 	return f.Write(w.b.Bytes())
 }
 
-func Compile(fileName string, writer FormattingWriter) {
+func Compile(fileName string, writer FormattingWriter, m WasmModuleLinker) {
 	fmt.Printf("Compiling file '%s'\n", fileName)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fileName, nil, parser.ParseComments)
@@ -65,26 +65,26 @@ func Compile(fileName string, writer FormattingWriter) {
 		ast.Print(fset, f)
 	}
 
-	m := NewWasmModuleLinker()
 	err = m.addAstFile(f, fset)
 	if err != nil {
 		panic(err)
 	}
-	m.print(writer)
 }
 
 func main() {
 	initFlags()
-	w := &FormattingWriterImpl{}
+	writer := &FormattingWriterImpl{}
+	m := NewWasmModuleLinker()
 	for _, f := range flag.Args() {
-		Compile(f, w)
+		Compile(f, writer, m)
 	}
+	m.print(writer)
 
 	if verbose {
-		fmt.Printf("--- begin WASM output\n%s\n--- end WASM output\n", w.b.String())
+		fmt.Printf("--- begin WASM output\n%s\n--- end WASM output\n", writer.b.String())
 	}
 
-	_, err := w.WriteToFile(outFile)
+	_, err := writer.WriteToFile(outFile)
 	if err != nil {
 		panic(err)
 	}
