@@ -59,7 +59,7 @@ func (file *WasmGoSourceFile) parseAstFuncDeclPass1(funcDecl *ast.FuncDecl, fset
 		locals:   make([]*WasmLocal, 0, 10),
 	}
 	if ident := funcDecl.Name; ident != nil {
-		f.name = astNameToWASM(file.pkgName+"_"+ident.Name, nil)
+		f.name = astNameToWASM(file.pkgName+"/"+ident.Name, nil)
 		f.origName = ident.Name
 		f.namePos = ident.NamePos
 	}

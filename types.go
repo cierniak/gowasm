@@ -123,15 +123,15 @@ func (file *WasmGoSourceFile) parseAstType(astType ast.Expr) (WasmType, error) {
 	return nil, err
 }
 
-func (file *WasmGoSourceFile) parseAstTypeDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstTypeDecl(decl *ast.GenDecl) (WasmType, error) {
 	if len(decl.Specs) != 1 {
 		return nil, fmt.Errorf("unsupported type declaration with %d specs", len(decl.Specs))
 	}
 	switch spec := decl.Specs[0].(type) {
 	default:
-		return nil, fmt.Errorf("unsupported type declaration with spec: %v at %s", spec, positionString(spec.Pos(), fset))
+		return nil, fmt.Errorf("unsupported type declaration with spec: %v at %s", spec, positionString(spec.Pos(), file.fset))
 	case *ast.TypeSpec:
-		return file.parseAstTypeSpec(spec, fset)
+		return file.parseAstTypeSpec(spec, file.fset)
 	}
 }
 

@@ -32,6 +32,7 @@ type WasmModule struct {
 	functions     []*WasmFunc
 	functionMap   map[*ast.FuncDecl]*WasmFunc
 	functionMap2  map[*ast.Object]*WasmFunc
+	funcSymTab    map[string]*WasmFunc
 	types         map[string]WasmType
 	variables     map[*ast.Object]WasmVariable
 	imports       map[string]*WasmImport
@@ -46,6 +47,7 @@ type WasmGoSourceFile struct {
 	fset    *token.FileSet
 	module  *WasmModule
 	pkgName string
+	imports map[string]string
 }
 
 func NewWasmModuleLinker() WasmModuleLinker {
@@ -55,6 +57,7 @@ func NewWasmModuleLinker() WasmModuleLinker {
 		functions:     make([]*WasmFunc, 0, 10),
 		functionMap:   make(map[*ast.FuncDecl]*WasmFunc),
 		functionMap2:  make(map[*ast.Object]*WasmFunc),
+		funcSymTab:    make(map[string]*WasmFunc),
 		types:         make(map[string]WasmType),
 		variables:     make(map[*ast.Object]WasmVariable),
 		imports:       make(map[string]*WasmImport),
@@ -70,6 +73,7 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 		astFile: f,
 		fset:    fset,
 		module:  m,
+		imports: make(map[string]string),
 	}
 	file.setPackageName()
 	m.files = append(m.files, file)
@@ -89,6 +93,7 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 			m.functions = append(m.functions, fn)
 			m.functionMap[decl] = fn
 			m.functionMap2[decl.Name.Obj] = fn
+			m.funcSymTab[fn.name] = fn
 		}
 	}
 
@@ -115,8 +120,13 @@ func (file *WasmGoSourceFile) generateCode() error {
 			switch decl.Tok {
 			default:
 				fmt.Printf("Ignoring GenDecl, token: %v\n", decl.Tok)
+			case token.IMPORT:
+				err := file.parseAstImportDecl(decl)
+				if err != nil {
+					return err
+				}
 			case token.TYPE:
-				_, err := file.parseAstTypeDecl(decl, file.fset)
+				_, err := file.parseAstTypeDecl(decl)
 				if err != nil {
 					return err
 				}
@@ -135,6 +145,25 @@ func (file *WasmGoSourceFile) generateCode() error {
 		}
 	}
 	return nil
+}
+
+func (file *WasmGoSourceFile) parseAstImportDecl(decl *ast.GenDecl) error {
+	if len(decl.Specs) != 1 {
+		return fmt.Errorf("unsupported import declaration with %d specs", len(decl.Specs))
+	}
+	switch spec := decl.Specs[0].(type) {
+	default:
+		return fmt.Errorf("unsupported import declaration with spec: %v at %s", spec, positionString(spec.Pos(), file.fset))
+	case *ast.ImportSpec:
+		path := strings.Trim(spec.Path.Value, "\"")
+		lastSlash := strings.LastIndex(path, "/")
+		if lastSlash <= 0 {
+			return fmt.Errorf("unexpected path in an import statement: '%s'", path)
+		}
+		lastPart := path[lastSlash+1:]
+		file.imports[lastPart] = path
+		return nil
+	}
 }
 
 func (file *WasmGoSourceFile) parseComment(c string) {
