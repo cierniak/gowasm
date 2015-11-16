@@ -78,6 +78,11 @@ func main() {
 	for _, f := range flag.Args() {
 		Compile(f, writer, m)
 	}
+
+	if err := m.finalize(); err != nil {
+		panic(err)
+	}
+
 	m.print(writer)
 
 	if verbose {

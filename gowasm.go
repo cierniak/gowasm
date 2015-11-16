@@ -13,6 +13,7 @@ import (
 
 type WasmModuleLinker interface {
 	addAstFile(f *ast.File, fset *token.FileSet) error
+	finalize() error
 	print(writer FormattingWriter)
 }
 
@@ -77,7 +78,7 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 		m.namePos = ident.NamePos
 	}
 
-	// Pass 1: create symbol table
+	fmt.Printf("Creating symbol tables for '%s'...\n", file.pkgName)
 	for _, decl := range f.Decls {
 		switch decl := decl.(type) {
 		case *ast.FuncDecl:
@@ -91,28 +92,42 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 		}
 	}
 
-	// Pass 2: generate code
-	for _, decl := range f.Decls {
+	return nil
+}
+
+func (m *WasmModule) finalize() error {
+	for _, file := range m.files {
+		fmt.Printf("Finalizing '%s'...\n", file.pkgName)
+		err := file.generateCode()
+		if err != nil {
+			return fmt.Errorf("error in finalizing file %s: %v", file.pkgName, err)
+		}
+	}
+	return nil
+}
+
+func (file *WasmGoSourceFile) generateCode() error {
+	for _, decl := range file.astFile.Decls {
 		switch decl := decl.(type) {
 		default:
-			return fmt.Errorf("unimplemented declaration type: %v at %s", decl, positionString(decl.Pos(), fset))
+			return fmt.Errorf("unimplemented declaration type: %v at %s", decl, positionString(decl.Pos(), file.fset))
 		case *ast.GenDecl:
 			switch decl.Tok {
 			default:
 				fmt.Printf("Ignoring GenDecl, token: %v\n", decl.Tok)
 			case token.TYPE:
-				_, err := file.parseAstTypeDecl(decl, fset)
+				_, err := file.parseAstTypeDecl(decl, file.fset)
 				if err != nil {
 					return err
 				}
 			case token.VAR:
-				_, err := file.parseAstVarDecl(decl, fset)
+				_, err := file.parseAstVarDecl(decl, file.fset)
 				if err != nil {
 					return err
 				}
 			}
 		case *ast.FuncDecl:
-			fn, ok := m.functionMap[decl]
+			fn, ok := file.module.functionMap[decl]
 			if !ok {
 				return fmt.Errorf("couldn't find function %s in the symbol table", decl.Name.Name)
 			}
