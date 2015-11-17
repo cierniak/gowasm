@@ -209,6 +209,14 @@ func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (Was
 	}
 }
 
+func (s *WasmScope) createLiteralInt32(value int32, indent int) (WasmExpression, error) {
+	t, err := s.f.module.convertAstTypeNameToWasmType("int32")
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create type int32 for a literal: %v", err)
+	}
+	return s.createLiteral(fmt.Sprintf("%d", value), t, indent)
+}
+
 func (s *WasmScope) createLiteral(value string, ty WasmType, indent int) (WasmExpression, error) {
 	if ty == nil {
 		return nil, fmt.Errorf("not implemented: literal without type: %v", value)
@@ -374,11 +382,7 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 	default:
 		return nil, fmt.Errorf("unimplemented variable kind: %v", v)
 	case *WasmGlobalVar:
-		t, err := s.f.module.convertAstTypeNameToWasmType("int32")
-		if err != nil {
-			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
-		}
-		addr, err := s.createLiteral(fmt.Sprintf("%d", v.addr), t, indent+1)
+		addr, err := s.createLiteralInt32(v.addr, indent+1)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
 		}
@@ -419,6 +423,22 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
 	}
 	fmt.Printf("parseStructAlloc, expr: %v, t: %v\n", expr, t)
+	size, err := s.createLiteralInt32(int32(t.getSize()), indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getSize())
+	}
+	align, err := s.createLiteralInt32(int32(t.getAlign()), indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getAlign())
+	}
+	fmt.Printf("parseStructAlloc, size: %v, align: %v\n", size, align)
+	allocFnName := mangleFunctionName("gowasm/rt/gc", "Alloc")
+	fn, ok := s.f.module.funcSymTab[allocFnName]
+	if !ok {
+		return nil, fmt.Errorf("link error, couldn't find alloc function: %s", allocFnName)
+	}
+	fmt.Printf("parseStructAlloc, allocFnName: %s, fn: %v\n", allocFnName, fn)
+	//return s.createCallExpr(call, allocFnName, fn, indent)
 	return nil, fmt.Errorf("struct allocation is not implemented: %v", expr)
 }
 

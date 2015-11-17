@@ -202,15 +202,11 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 	default:
 		return nil, fmt.Errorf("unimplemented variable kind in SetVar: %v", v)
 	case *WasmGlobalVar:
-		t, err := s.f.module.convertAstTypeNameToWasmType("int32")
+		addr, err := s.createLiteralInt32(v.addr, indent+1)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
 		}
-		addr, err := s.createLiteral(fmt.Sprintf("%d", v.addr), t, indent+1)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
-		}
-		store, err := s.createStore(addr, rhs, t, indent)
+		store, err := s.createStore(addr, rhs, addr.getType(), indent)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't generate a store for global %s", v.getName())
 		}
