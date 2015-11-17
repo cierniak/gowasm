@@ -191,6 +191,7 @@ func (e *WasmExprBase) setScope(scope *WasmScope) {
 }
 
 func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (WasmExpression, error) {
+	fmt.Printf("parseExpr, expr: %v\n", expr)
 	switch expr := expr.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), s.f.fset))
@@ -427,6 +428,24 @@ func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent i
 }
 
 func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType, indent int) (WasmExpression, error) {
+	x, err := s.parseExpr(expr.X, nil, indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error in SelectorExpr: %v", err)
+	}
+	ty := x.getType()
+	if ty == nil {
+		return nil, fmt.Errorf("error in SelectorExpr: type of x is nil")
+	}
+	fmt.Printf("parseSelectorExpr, type: %v, x: %v\n", ty, x)
+	switch ty := ty.(type) {
+	default:
+		return nil, fmt.Errorf("unsupported type in SelectorExpr: %v", ty)
+	case *WasmTypeScalar:
+		fmt.Printf("parseSelectorExpr, scalar type: %v\n", ty)
+		return x, nil // HACK. REMOVE SOON!
+	case *WasmTypeStruct:
+		fmt.Printf("parseSelectorExpr, struct type: %v\n", ty)
+	}
 	return nil, fmt.Errorf("unimplemented SelectorExpr: %v", expr)
 }
 
@@ -435,7 +454,6 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
 	}
-	fmt.Printf("parseStructAlloc, expr: %v, t: %v\n", expr, t)
 	size, err := s.createLiteralInt32(int32(t.getSize()), indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getSize())
@@ -445,13 +463,11 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getAlign())
 	}
 	args := []WasmExpression{size, align}
-	fmt.Printf("parseStructAlloc, size: %v, align: %v\n", size, align)
 	allocFnName := mangleFunctionName("gowasm/rt/gc", "Alloc")
 	fn, ok := s.f.module.funcSymTab[allocFnName]
 	if !ok {
 		return nil, fmt.Errorf("link error, couldn't find alloc function: %s", allocFnName)
 	}
-	fmt.Printf("parseStructAlloc, allocFnName: %s, fn: %v\n", allocFnName, fn)
 	callExpr, err := s.createCallExprWithArgs(nil, allocFnName, fn, args, indent)
 	if callExpr != nil {
 		callExpr.setNode(expr)
