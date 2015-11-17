@@ -69,7 +69,10 @@ func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, i
 		}
 		s.f.module.imports[name] = i
 	}
-	args := s.parseArgs(call.Args, indent+1)
+	args, err := s.parseArgs(call.Args, indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing args to runtime function %s: %v", name, err)
+	}
 	c := &WasmCallImport{
 		i:    i,
 		args: args,

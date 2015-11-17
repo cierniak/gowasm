@@ -204,6 +204,8 @@ func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (Was
 		return s.parseIdent(expr, indent)
 	case *ast.ParenExpr:
 		return s.parseParenExpr(expr, typeHint, indent)
+	case *ast.SelectorExpr:
+		return s.parseSelectorExpr(expr, typeHint, indent)
 	case *ast.UnaryExpr:
 		return s.parseUnaryExpr(expr, indent)
 	}
@@ -277,16 +279,16 @@ func (s *WasmScope) parseBinaryExpr(expr *ast.BinaryExpr, typeHint WasmType, ind
 	return result, nil
 }
 
-func (s *WasmScope) parseArgs(args []ast.Expr, indent int) []WasmExpression {
+func (s *WasmScope) parseArgs(args []ast.Expr, indent int) ([]WasmExpression, error) {
 	result := make([]WasmExpression, 0, len(args))
-	for _, arg := range args {
+	for i, arg := range args {
 		e, err := s.parseExpr(arg, nil, indent) // TODO: Should the hint be nil?
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("couldn't parse arg #%d: %v", i, err)
 		}
 		result = append(result, e)
 	}
-	return result
+	return result, nil
 }
 
 func (s *WasmScope) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, indent int) (WasmExpression, error) {
@@ -297,8 +299,7 @@ func (s *WasmScope) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, ind
 	return s.parseExpr(v, ty, indent)
 }
 
-func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc, indent int) (WasmExpression, error) {
-	args := s.parseArgs(call.Args, indent+1)
+func (s *WasmScope) createCallExprWithArgs(call *ast.CallExpr, name string, fn *WasmFunc, args []WasmExpression, indent int) (WasmExpression, error) {
 	c := &WasmCall{
 		name: name,
 		args: args,
@@ -309,6 +310,14 @@ func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc
 	c.setNode(call)
 	c.setScope(s)
 	return c, nil
+}
+
+func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc, indent int) (WasmExpression, error) {
+	args, err := s.parseArgs(call.Args, indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing args to function %s: %v", name, err)
+	}
+	return s.createCallExprWithArgs(call, name, fn, args, indent)
 }
 
 func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
@@ -417,6 +426,10 @@ func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent i
 	return s.parseExpr(p.X, typeHint, indent)
 }
 
+func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType, indent int) (WasmExpression, error) {
+	return nil, fmt.Errorf("unimplemented SelectorExpr: %v", expr)
+}
+
 func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
 	t, err := s.f.file.parseAstType(expr.Type)
 	if err != nil {
@@ -431,6 +444,7 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getAlign())
 	}
+	args := []WasmExpression{size, align}
 	fmt.Printf("parseStructAlloc, size: %v, align: %v\n", size, align)
 	allocFnName := mangleFunctionName("gowasm/rt/gc", "Alloc")
 	fn, ok := s.f.module.funcSymTab[allocFnName]
@@ -438,8 +452,11 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 		return nil, fmt.Errorf("link error, couldn't find alloc function: %s", allocFnName)
 	}
 	fmt.Printf("parseStructAlloc, allocFnName: %s, fn: %v\n", allocFnName, fn)
-	//return s.createCallExpr(call, allocFnName, fn, indent)
-	return nil, fmt.Errorf("struct allocation is not implemented: %v", expr)
+	callExpr, err := s.createCallExprWithArgs(nil, allocFnName, fn, args, indent)
+	if callExpr != nil {
+		callExpr.setNode(expr)
+	}
+	return callExpr, err
 }
 
 func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, error) {
