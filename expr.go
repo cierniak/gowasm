@@ -289,11 +289,21 @@ func (s *WasmScope) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, ind
 	return s.parseExpr(v, ty, indent)
 }
 
-//func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc, indent int) (WasmExpression, error) {
-//}
+func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc, indent int) (WasmExpression, error) {
+	args := s.parseArgs(call.Args, indent+1)
+	c := &WasmCall{
+		name: name,
+		args: args,
+		call: call,
+		def:  fn,
+	}
+	c.setIndent(indent)
+	c.setNode(call)
+	c.setScope(s)
+	return c, nil
+}
 
 func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
-	fmt.Printf("parseCallExpr, call: %v\n", call)
 	switch fun := call.Fun.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, s.f.fset))
@@ -310,25 +320,14 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 			return s.parseConvertExpr(typ.getName(), fun, call.Args[0], indent)
 		}
 
-		args := s.parseArgs(call.Args, indent+1)
-		c := &WasmCall{
-			name: name,
-			args: args,
-			call: call,
-		}
 		// TODO: Make it work for forward references.
 		decl, ok := fun.Obj.Decl.(*ast.FuncDecl)
 		if ok {
-			def, ok := s.f.module.functionMap[decl]
-			if ok {
-				c.def = def
-			}
+			return s.createCallExpr(call, name, s.f.module.functionMap[decl], indent)
+		} else {
+			return nil, fmt.Errorf("function %s undefined (forward reference?)", name)
 
 		}
-		c.setIndent(indent)
-		c.setNode(call)
-		c.setScope(s)
-		return c, nil
 	case *ast.SelectorExpr:
 		return s.parseCallExprSelector(call, fun, indent)
 	}
@@ -336,11 +335,9 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 }
 
 func (s *WasmScope) parseCallExprSelector(call *ast.CallExpr, se *ast.SelectorExpr, indent int) (WasmExpression, error) {
-	fmt.Printf("SelectorExpr, X: %v, Sel: %v\n", se.X, se.Sel)
 	if isWASMRuntimePackage(se.X) {
 		return s.parseWASMRuntimeCall(se.Sel, call, indent)
 	}
-	fmt.Printf("SelectorExpr, not a runtime package\n")
 	switch x := se.X.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented X in selector: %v", x)
@@ -349,12 +346,11 @@ func (s *WasmScope) parseCallExprSelector(call *ast.CallExpr, se *ast.SelectorEx
 		pkgLong, ok := s.f.file.imports[pkgShort]
 		if ok {
 			name := mangleFunctionName(pkgLong, se.Sel.Name)
-			fmt.Printf("SelectorExpr, name: '%s'\n", name)
 			fn, ok := s.f.module.funcSymTab[name]
 			if !ok {
 				return nil, fmt.Errorf("link error, couldn't find function: %s", name)
 			}
-			fmt.Printf("SelectorExpr, fn: %v\n", fn)
+			return s.createCallExpr(call, name, fn, indent)
 		}
 	}
 	return nil, fmt.Errorf("unimplemented selector in a call expression, X: %v, sel: %v", se.X, se.Sel)
