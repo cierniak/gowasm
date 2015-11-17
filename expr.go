@@ -289,7 +289,11 @@ func (s *WasmScope) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, ind
 	return s.parseExpr(v, ty, indent)
 }
 
+//func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc, indent int) (WasmExpression, error) {
+//}
+
 func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
+	fmt.Printf("parseCallExpr, call: %v\n", call)
 	switch fun := call.Fun.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, s.f.fset))
@@ -305,6 +309,7 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 		if err == nil && len(call.Args) == 1 {
 			return s.parseConvertExpr(typ.getName(), fun, call.Args[0], indent)
 		}
+
 		args := s.parseArgs(call.Args, indent+1)
 		c := &WasmCall{
 			name: name,
@@ -325,11 +330,34 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 		c.setScope(s)
 		return c, nil
 	case *ast.SelectorExpr:
-		if isWASMRuntimePackage(fun.X) {
-			return s.parseWASMRuntimeCall(fun.Sel, call, indent)
-		}
+		return s.parseCallExprSelector(call, fun, indent)
 	}
 	return nil, fmt.Errorf("unimplemented call expression at %s", positionString(call.Lparen, s.f.fset))
+}
+
+func (s *WasmScope) parseCallExprSelector(call *ast.CallExpr, se *ast.SelectorExpr, indent int) (WasmExpression, error) {
+	fmt.Printf("SelectorExpr, X: %v, Sel: %v\n", se.X, se.Sel)
+	if isWASMRuntimePackage(se.X) {
+		return s.parseWASMRuntimeCall(se.Sel, call, indent)
+	}
+	fmt.Printf("SelectorExpr, not a runtime package\n")
+	switch x := se.X.(type) {
+	default:
+		return nil, fmt.Errorf("unimplemented X in selector: %v", x)
+	case *ast.Ident:
+		pkgShort := x.Name
+		pkgLong, ok := s.f.file.imports[pkgShort]
+		if ok {
+			name := mangleFunctionName(pkgLong, se.Sel.Name)
+			fmt.Printf("SelectorExpr, name: '%s'\n", name)
+			fn, ok := s.f.module.funcSymTab[name]
+			if !ok {
+				return nil, fmt.Errorf("link error, couldn't find function: %s", name)
+			}
+			fmt.Printf("SelectorExpr, fn: %v\n", fn)
+		}
+	}
+	return nil, fmt.Errorf("unimplemented selector in a call expression, X: %v, sel: %v", se.X, se.Sel)
 }
 
 func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (WasmExpression, error) {

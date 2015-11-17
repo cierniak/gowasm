@@ -141,7 +141,10 @@ func (file *WasmGoSourceFile) generateCode() error {
 			if !ok {
 				return fmt.Errorf("couldn't find function %s in the symbol table", decl.Name.Name)
 			}
-			fn.parseAstFuncDecl()
+			_, err := fn.parseAstFuncDecl()
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -270,6 +273,10 @@ func astNameToWASM(astName string, s *WasmScope) string {
 	} else {
 		return fmt.Sprintf("$%s_%s", s.name, astName)
 	}
+}
+
+func mangleFunctionName(pkg, fn string) string {
+	return astNameToWASM(pkg+"/"+fn, nil)
 }
 
 func positionString(pos token.Pos, fset *token.FileSet) string {
