@@ -66,7 +66,10 @@ func (file *WasmGoSourceFile) parseAstFuncDeclPass1(funcDecl *ast.FuncDecl, fset
 		f.namePos = ident.NamePos
 	}
 	if funcDecl.Type != nil {
-		f.parseType(funcDecl.Type)
+		err := f.parseType(funcDecl.Type)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing function %s: %v", f.origName, err)
+		}
 	}
 	f.scope = f.createScope(fmt.Sprintf("function_%s", f.origName))
 	return f, nil
@@ -83,12 +86,12 @@ func (f *WasmFunc) parseAstFuncDecl() (*WasmFunc, error) {
 	return f, err
 }
 
-func (f *WasmFunc) parseType(t *ast.FuncType) {
+func (f *WasmFunc) parseType(t *ast.FuncType) error {
 	if t.Params.List != nil {
 		for _, field := range t.Params.List {
 			paramType, err := f.file.parseAstType(field.Type)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("error in a function parameter type: %v", err)
 			}
 			for _, name := range field.Names {
 				p := &WasmParam{
@@ -105,19 +108,19 @@ func (f *WasmFunc) parseType(t *ast.FuncType) {
 
 	if t.Results != nil {
 		if len(t.Results.List) != 1 {
-			err := fmt.Errorf("functions returning %d values are not implemented", len(t.Results.List))
-			panic(err)
+			return fmt.Errorf("functions returning %d values are not implemented", len(t.Results.List))
 		}
 		field := t.Results.List[0]
 		paramType, err := f.file.parseAstType(field.Type)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("error in a function result type: %v", err)
 		}
 		f.result = &WasmResult{
 			astType: field.Type,
 			t:       paramType,
 		}
 	}
+	return nil
 }
 
 func (f *WasmFunc) print(writer FormattingWriter) {

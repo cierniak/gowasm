@@ -9,6 +9,7 @@ type Point struct {
 	y int32
 }
 
+/*
 //wasm:assert_return (invoke "R" (i32.const 16) (i32.const 8)) (i32.const 16)
 func R(size, align int32) int32 {
 	p1 := gc.Alloc(size, align)
@@ -22,3 +23,17 @@ func F(a int32) int32 {
 	p.x = a
 	return p.x
 }
+*/
+func newPoint(x, y int32) *Point {
+	p := &Point{}
+	p.x = x
+	p.y = y
+	return p
+}
+
+/*
+func G(x, y int32) int32 {
+	p := newPoint(x, y)
+	return p.x + p.y
+}
+*/
