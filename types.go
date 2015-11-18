@@ -26,6 +26,11 @@ type WasmTypeScalar struct {
 	signed bool
 }
 
+type WasmTypePointer struct {
+	WasmTypeBase
+	base WasmType
+}
+
 type WasmField struct {
 	name   string
 	offset int
@@ -66,6 +71,14 @@ func (t *WasmTypeScalar) isSigned() bool {
 }
 
 func (t *WasmTypeScalar) print(writer FormattingWriter) {
+	writer.Printf("%s", t.name)
+}
+
+func (t *WasmTypePointer) isSigned() bool {
+	return false
+}
+
+func (t *WasmTypePointer) print(writer FormattingWriter) {
 	writer.Printf("%s", t.name)
 }
 

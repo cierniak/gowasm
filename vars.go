@@ -7,10 +7,11 @@ import (
 )
 
 type WasmGlobalVar struct {
-	name   string
-	t      WasmType
-	addr   int32
-	indent int
+	name     string
+	t        WasmType
+	fullType WasmType
+	addr     int32
+	indent   int
 }
 
 type WasmGetGlobal struct {
@@ -36,6 +37,14 @@ func (v *WasmGlobalVar) print(writer FormattingWriter) {
 
 func (v *WasmGlobalVar) getType() WasmType {
 	return v.t
+}
+
+func (v *WasmGlobalVar) getFullType() WasmType {
+	return v.fullType
+}
+
+func (v *WasmGlobalVar) setFullType(t WasmType) {
+	v.fullType = t
 }
 
 func (v *WasmGlobalVar) getName() string {

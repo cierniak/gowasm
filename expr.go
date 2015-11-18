@@ -66,6 +66,8 @@ var binOpMapping = [...]BinOp{
 type WasmExpression interface {
 	print(writer FormattingWriter)
 	getType() WasmType
+	getFullType() WasmType
+	setFullType(t WasmType)
 	getNode() ast.Node
 	setNode(node ast.Node)
 	getIndent() int
@@ -79,11 +81,12 @@ type WasmExpression interface {
 }
 
 type WasmExprBase struct {
-	indent  int
-	parent  WasmExpression
-	astNode ast.Node
-	comment string
-	scope   *WasmScope
+	indent   int
+	parent   WasmExpression
+	astNode  ast.Node
+	comment  string
+	scope    *WasmScope
+	fullType WasmType
 }
 
 // value: <int> | <float>
@@ -143,6 +146,14 @@ func (e *WasmExprBase) setIndent(indent int) {
 	e.indent = indent
 }
 
+func (e *WasmExprBase) getFullType() WasmType {
+	return e.fullType
+}
+
+func (e *WasmExprBase) setFullType(t WasmType) {
+	e.fullType = t
+}
+
 func (e *WasmExprBase) getParent() WasmExpression {
 	return e.parent
 }
@@ -191,7 +202,6 @@ func (e *WasmExprBase) setScope(scope *WasmScope) {
 }
 
 func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (WasmExpression, error) {
-	fmt.Printf("parseExpr, expr: %v\n", expr)
 	switch expr := expr.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), s.f.fset))
@@ -420,6 +430,7 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 	g.setIndent(indent)
 	g.setScope(s)
 	g.setNode(ident)
+	g.setFullType(v.getFullType())
 	return g, nil
 }
 
@@ -427,24 +438,45 @@ func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent i
 	return s.parseExpr(p.X, typeHint, indent)
 }
 
+func (s *WasmScope) createFieldAccessExpr(expr *ast.SelectorExpr, x WasmExpression, field *WasmField, indent int) (WasmExpression, error) {
+	fmt.Printf("createFieldAccessExpr, field: %s, offset: %d\n", field.name, field.offset)
+	offset, err := s.createLiteralInt32(int32(field.offset), indent+2)
+	if err != nil {
+		return nil, fmt.Errorf("error in offset for field %s: %v", field.name, err)
+	}
+	offset.setComment(fmt.Sprintf("field %s, offset: %d", field.name, field.offset))
+	addr, err := s.createBinaryExpr(x, offset, binOpAdd, x.getType(), indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error in address computation for field %s: %v", field.name, err)
+	}
+	return addr, nil // HACK. REMOVE SOON!
+}
+
 func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType, indent int) (WasmExpression, error) {
-	x, err := s.parseExpr(expr.X, nil, indent+1)
+	x, err := s.parseExpr(expr.X, nil, indent+2)
 	if err != nil {
 		return nil, fmt.Errorf("error in SelectorExpr: %v", err)
 	}
-	ty := x.getType()
+	ty := x.getFullType()
 	if ty == nil {
-		return nil, fmt.Errorf("error in SelectorExpr: type of x is nil")
+		return nil, fmt.Errorf("error in SelectorExpr: full type of x is nil")
 	}
-	fmt.Printf("parseSelectorExpr, type: %v, x: %v\n", ty, x)
 	switch ty := ty.(type) {
 	default:
 		return nil, fmt.Errorf("unsupported type in SelectorExpr: %v", ty)
-	case *WasmTypeScalar:
-		fmt.Printf("parseSelectorExpr, scalar type: %v\n", ty)
-		return x, nil // HACK. REMOVE SOON!
-	case *WasmTypeStruct:
-		fmt.Printf("parseSelectorExpr, struct type: %v\n", ty)
+	case *WasmTypePointer:
+		switch baseTy := ty.base.(type) {
+		default:
+			return nil, fmt.Errorf("unsupported base type in SelectorExpr: %v", baseTy)
+		case *WasmTypeStruct:
+			fName := expr.Sel.Name
+			for _, f := range baseTy.fields {
+				if fName == f.name {
+					return s.createFieldAccessExpr(expr, x, f, indent)
+				}
+			}
+			return nil, fmt.Errorf("field %s not found in struct: %v", fName, baseTy)
+		}
 	}
 	return nil, fmt.Errorf("unimplemented SelectorExpr: %v", expr)
 }
@@ -454,6 +486,15 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
 	}
+
+	// TODO: Factor out into a function
+	ptrTy := &WasmTypePointer{
+		base: t,
+	}
+	ptrTy.setName(fmt.Sprintf("*%s", t.getName()))
+	ptrTy.setAlign(32)
+	ptrTy.setSize(32)
+
 	size, err := s.createLiteralInt32(int32(t.getSize()), indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getSize())
@@ -471,6 +512,7 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 	callExpr, err := s.createCallExprWithArgs(nil, allocFnName, fn, args, indent)
 	if callExpr != nil {
 		callExpr.setNode(expr)
+		callExpr.setFullType(ptrTy)
 	}
 	return callExpr, err
 }

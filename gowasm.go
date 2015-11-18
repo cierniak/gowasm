@@ -20,6 +20,8 @@ type WasmModuleLinker interface {
 type WasmVariable interface {
 	print(writer FormattingWriter)
 	getType() WasmType
+	getFullType() WasmType
+	setFullType(t WasmType)
 	getName() string
 }
 

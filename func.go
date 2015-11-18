@@ -32,12 +32,14 @@ type WasmParam struct {
 	astType  ast.Expr
 	name     string
 	t        WasmType
+	fullType WasmType
 }
 
 type WasmLocal struct {
 	astIdent *ast.Ident
 	name     string
 	t        WasmType
+	fullType WasmType
 }
 
 // result: ( result <type> )
@@ -178,6 +180,14 @@ func (p *WasmParam) getType() WasmType {
 	return p.t
 }
 
+func (p *WasmParam) getFullType() WasmType {
+	return p.fullType
+}
+
+func (p *WasmParam) setFullType(t WasmType) {
+	p.fullType = t
+}
+
 func (p *WasmParam) print(writer FormattingWriter) {
 	writer.Printf(" (param ")
 	if p.name != "" {
@@ -199,6 +209,14 @@ func (v *WasmLocal) getName() string {
 
 func (v *WasmLocal) getType() WasmType {
 	return v.t
+}
+
+func (v *WasmLocal) getFullType() WasmType {
+	return v.fullType
+}
+
+func (v *WasmLocal) setFullType(t WasmType) {
+	v.fullType = t
 }
 
 func (v *WasmLocal) print(writer FormattingWriter) {

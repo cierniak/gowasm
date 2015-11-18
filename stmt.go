@@ -231,6 +231,8 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 	sl.setIndent(indent)
 	sl.setScope(s)
 	sl.setNode(stmt)
+	sl.setFullType(rhs.getFullType())
+	v.setFullType(rhs.getFullType())
 	return sl, nil
 }
 
