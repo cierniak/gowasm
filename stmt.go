@@ -140,20 +140,30 @@ func (s *WasmScope) parseDefineAssignLHS(lhs []ast.Expr, ty WasmType, indent int
 	}
 }
 
-func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty WasmType, indent int) (WasmVariable, error) {
+func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty WasmType, indent int) (WasmVariable, *LValue, error) {
 	if len(lhs) != 1 {
-		return nil, fmt.Errorf("unimplemented multi-value LHS in AssignStmt")
+		return nil, nil, fmt.Errorf("unimplemented multi-value LHS in AssignStmt")
 	}
 	switch lhs := lhs[0].(type) {
 	default:
-		return nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
+		return nil, nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
+	case *ast.SelectorExpr:
+		lvalue, err := s.parseSelectorExprLValue(lhs, nil, indent)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error in address computation for SelectorExpr %v: %v", lhs, err)
+		}
+		return nil, lvalue, nil
 	case *ast.Ident:
 		v, ok := s.f.module.variables[lhs.Obj]
 		if !ok {
-			return nil, fmt.Errorf("couldn't find variable '%s' on the LHS of an assignment", lhs.Name)
+			return nil, nil, fmt.Errorf("couldn't find variable '%s' on the LHS of an assignment", lhs.Name)
 		}
-		return v, nil
+		return v, nil, nil
 	}
+}
+
+func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, indent int) (WasmExpression, error) {
+	return s.createStore(lvalue.addr, rhs, rhs.getType(), indent)
 }
 
 func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
@@ -172,18 +182,23 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 	}
 
 	var v WasmVariable
+	var lvalue *LValue
 	switch stmt.Tok {
 	default:
 		return nil, fmt.Errorf("unimplemented AssignStmt, token='%v'", stmt.Tok)
 	case token.ASSIGN:
-		v, err = s.parseAssignLHS(stmt.Lhs, ty, indent)
+		v, lvalue, err = s.parseAssignLHS(stmt.Lhs, ty, indent)
 	case token.DEFINE:
 		v, err = s.parseDefineAssignLHS(stmt.Lhs, ty, indent)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return s.createSetVar(v, rhs, stmt, indent)
+	if lvalue != nil {
+		return s.parseAssignToLvalue(lvalue, rhs, indent)
+	} else {
+		return s.createSetVar(v, rhs, stmt, indent)
+	}
 }
 
 func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, indent int) (WasmExpression, error) {

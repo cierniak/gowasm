@@ -80,6 +80,11 @@ type WasmExpression interface {
 	setScope(scope *WasmScope)
 }
 
+type LValue struct {
+	addr WasmExpression
+	t    WasmType
+}
+
 type WasmExprBase struct {
 	indent   int
 	parent   WasmExpression
@@ -438,7 +443,7 @@ func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent i
 	return s.parseExpr(p.X, typeHint, indent)
 }
 
-func (s *WasmScope) createFieldAccessExpr(expr *ast.SelectorExpr, x WasmExpression, field *WasmField, indent int) (WasmExpression, error) {
+func (s *WasmScope) createFieldAccessExpr(expr *ast.SelectorExpr, x WasmExpression, field *WasmField, indent int) (*LValue, error) {
 	offset, err := s.createLiteralInt32(int32(field.offset), indent+2)
 	if err != nil {
 		return nil, fmt.Errorf("error in offset for field %s: %v", field.name, err)
@@ -448,16 +453,14 @@ func (s *WasmScope) createFieldAccessExpr(expr *ast.SelectorExpr, x WasmExpressi
 	if err != nil {
 		return nil, fmt.Errorf("error in address computation for field %s: %v", field.name, err)
 	}
-	l, err := s.createLoad(addr, x.getType(), indent)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't create a load to access field %s", field.name)
+	l := &LValue{
+		addr: addr,
+		t:    x.getType(),
 	}
-	l.setScope(s)
-	l.setNode(expr)
 	return l, nil
 }
 
-func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseSelectorExprLValue(expr *ast.SelectorExpr, typeHint WasmType, indent int) (*LValue, error) {
 	x, err := s.parseExpr(expr.X, nil, indent+2)
 	if err != nil {
 		return nil, fmt.Errorf("error in SelectorExpr: %v", err)
@@ -484,6 +487,20 @@ func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType,
 		}
 	}
 	return nil, fmt.Errorf("unimplemented SelectorExpr: %v", expr)
+}
+
+func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType, indent int) (WasmExpression, error) {
+	lvalue, err := s.parseSelectorExprLValue(expr, typeHint, indent)
+	if err != nil {
+		return nil, fmt.Errorf("error in address computation for SelectorExpr %v: %v", expr, err)
+	}
+	l, err := s.createLoad(lvalue.addr, lvalue.t, indent)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a load in a SelectorExpr", expr)
+	}
+	l.setScope(s)
+	l.setNode(expr)
+	return l, nil
 }
 
 func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {

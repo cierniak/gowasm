@@ -16,8 +16,9 @@ func R(size, align int32) int32 {
 	return p2 - p1
 }
 
-//wasm:assert_return (invoke "F" (i32.const 6)) (i32.const 0)
+//wasm:assert_return (invoke "F" (i32.const 6)) (i32.const 6)
 func F(a int32) int32 {
 	p := &Point{}
+	p.x = a
 	return p.x
 }
