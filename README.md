@@ -26,6 +26,13 @@ cd $GOWASM
 go install gowasm
 bin/gowasm src/gowasm/tests/fac/fac.go
 ```
+You can "link" multiple source files into a single WASM module by specifying all source files as arguments, e.g.,
+```
+bin/gowasm src/gowasm/rt/gc/gc.go \
+  src/gowasm/tests/mem/mem.go \
+  src/gowasm/tests/i32/i32.go \
+  src/gowasm/tests/fac/fac.go
+```
 To see the list of available command line options, run:
 ```
 bin/gowasm --help
