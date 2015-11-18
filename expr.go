@@ -439,7 +439,6 @@ func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent i
 }
 
 func (s *WasmScope) createFieldAccessExpr(expr *ast.SelectorExpr, x WasmExpression, field *WasmField, indent int) (WasmExpression, error) {
-	fmt.Printf("createFieldAccessExpr, field: %s, offset: %d\n", field.name, field.offset)
 	offset, err := s.createLiteralInt32(int32(field.offset), indent+2)
 	if err != nil {
 		return nil, fmt.Errorf("error in offset for field %s: %v", field.name, err)
@@ -449,7 +448,13 @@ func (s *WasmScope) createFieldAccessExpr(expr *ast.SelectorExpr, x WasmExpressi
 	if err != nil {
 		return nil, fmt.Errorf("error in address computation for field %s: %v", field.name, err)
 	}
-	return addr, nil // HACK. REMOVE SOON!
+	l, err := s.createLoad(addr, x.getType(), indent)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a load to access field %s", field.name)
+	}
+	l.setScope(s)
+	l.setNode(expr)
+	return l, nil
 }
 
 func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType, indent int) (WasmExpression, error) {
