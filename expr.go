@@ -509,13 +509,10 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
 	}
 
-	// TODO: Factor out into a function
-	ptrTy := &WasmTypePointer{
-		base: t,
+	ptrTy, err := s.f.file.createPointerType(t)
+	if err != nil {
+		return nil, fmt.Errorf("struct allocation, couldn't create a pointer type: %v", err)
 	}
-	ptrTy.setName(fmt.Sprintf("*%s", t.getName()))
-	ptrTy.setAlign(32)
-	ptrTy.setSize(32)
 
 	size, err := s.createLiteralInt32(int32(t.getSize()), indent+1)
 	if err != nil {

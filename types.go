@@ -79,7 +79,7 @@ func (t *WasmTypePointer) isSigned() bool {
 }
 
 func (t *WasmTypePointer) print(writer FormattingWriter) {
-	writer.Printf("%s", t.name)
+	writer.Printf("i32 (; %s ;)", t.name)
 }
 
 func (t *WasmTypeStruct) isSigned() bool {
@@ -119,21 +119,38 @@ func (file *WasmGoSourceFile) convertAstTypeToWasmType(astType *ast.Ident) (*Was
 }
 
 func (file *WasmGoSourceFile) parseAstType(astType ast.Expr) (WasmType, error) {
-	if astTypeIdent, ok := astType.(*ast.Ident); ok {
-		name := astTypeIdent.Name
+	switch astType := astType.(type) {
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", astType)
+	case *ast.Ident:
+		name := astType.Name
 		t, ok := file.module.types[name]
 		if !ok {
 			var err error
-			t, err = file.convertAstTypeToWasmType(astTypeIdent)
+			t, err = file.convertAstTypeToWasmType(astType)
 			if err != nil {
 				return nil, err
 			}
 			file.module.types[name] = t
 		}
 		return t, nil
+	case *ast.StarExpr:
+		base, err := file.parseAstType(astType.X)
+		if err != nil {
+			return nil, fmt.Errorf("error in a pointer type: %v", err)
+		}
+		return file.createPointerType(base)
 	}
-	err := fmt.Errorf("type is not an ident: %v", astType)
-	return nil, err
+}
+
+func (file *WasmGoSourceFile) createPointerType(t WasmType) (WasmType, error) {
+	ptrTy := &WasmTypePointer{
+		base: t,
+	}
+	ptrTy.setName(fmt.Sprintf("*%s", t.getName()))
+	ptrTy.setAlign(32)
+	ptrTy.setSize(32)
+	return ptrTy, nil
 }
 
 func (file *WasmGoSourceFile) parseAstTypeDecl(decl *ast.GenDecl) (WasmType, error) {

@@ -87,6 +87,8 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 	fmt.Printf("Creating symbol tables for '%s'...\n", file.pkgName)
 	for _, decl := range f.Decls {
 		switch decl := decl.(type) {
+		default:
+			return fmt.Errorf("unimplemented declaration type: %v at %s", decl, positionString(decl.Pos(), file.fset))
 		case *ast.FuncDecl:
 			fn, err := file.parseAstFuncDeclPass1(decl, fset, m.indent+1)
 			if err != nil {
@@ -96,28 +98,6 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 			m.functionMap[decl] = fn
 			m.functionMap2[decl.Name.Obj] = fn
 			m.funcSymTab[fn.name] = fn
-		}
-	}
-
-	return nil
-}
-
-func (m *WasmModule) finalize() error {
-	for _, file := range m.files {
-		fmt.Printf("Finalizing '%s'...\n", file.pkgName)
-		err := file.generateCode()
-		if err != nil {
-			return fmt.Errorf("error in finalizing file %s: %v", file.pkgName, err)
-		}
-	}
-	return nil
-}
-
-func (file *WasmGoSourceFile) generateCode() error {
-	for _, decl := range file.astFile.Decls {
-		switch decl := decl.(type) {
-		default:
-			return fmt.Errorf("unimplemented declaration type: %v at %s", decl, positionString(decl.Pos(), file.fset))
 		case *ast.GenDecl:
 			switch decl.Tok {
 			default:
@@ -138,6 +118,26 @@ func (file *WasmGoSourceFile) generateCode() error {
 					return err
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+func (m *WasmModule) finalize() error {
+	for _, file := range m.files {
+		fmt.Printf("Finalizing '%s'...\n", file.pkgName)
+		err := file.generateCode()
+		if err != nil {
+			return fmt.Errorf("error in finalizing file %s: %v", file.pkgName, err)
+		}
+	}
+	return nil
+}
+
+func (file *WasmGoSourceFile) generateCode() error {
+	for _, decl := range file.astFile.Decls {
+		switch decl := decl.(type) {
 		case *ast.FuncDecl:
 			fn, ok := file.module.functionMap[decl]
 			if !ok {
