@@ -11,6 +11,11 @@ import (
 	"unicode/utf8"
 )
 
+type GoWasmError struct {
+	node ast.Node
+	msg  string
+}
+
 type WasmModuleLinker interface {
 	addAstFile(f *ast.File, fset *token.FileSet) error
 	finalize() error
@@ -296,4 +301,18 @@ func (file *WasmGoSourceFile) setPackageName() {
 		path = path[4:]
 	}
 	file.pkgName = path
+}
+
+func (e *GoWasmError) Error() string {
+	return e.msg
+}
+
+func (file *WasmGoSourceFile) ErrorNode(node ast.Node, format string, a ...interface{}) error {
+	pos := node.Pos()
+	position := file.fset.File(pos).PositionFor(pos, false)
+	s := fmt.Sprintf(format, a...)
+	e := &GoWasmError{
+		msg: fmt.Sprintf("%s @ %v", s, position),
+	}
+	return e
 }

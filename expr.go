@@ -467,7 +467,7 @@ func (s *WasmScope) parseSelectorExprLValue(expr *ast.SelectorExpr, typeHint Was
 	}
 	ty := x.getFullType()
 	if ty == nil {
-		return nil, fmt.Errorf("error in SelectorExpr: full type of x is nil")
+		return nil, s.f.file.ErrorNode(expr, "error in SelectorExpr: full type of x is nil")
 	}
 	switch ty := ty.(type) {
 	default:
