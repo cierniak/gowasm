@@ -111,13 +111,13 @@ func (f *WasmFunc) parseType(t *ast.FuncType) error {
 			return fmt.Errorf("functions returning %d values are not implemented", len(t.Results.List))
 		}
 		field := t.Results.List[0]
-		paramType, err := f.file.parseAstType(field.Type)
+		resultType, err := f.file.parseAstType(field.Type)
 		if err != nil {
 			return fmt.Errorf("error in a function result type: %v", err)
 		}
 		f.result = &WasmResult{
 			astType: field.Type,
-			t:       paramType,
+			t:       resultType,
 		}
 	}
 	return nil

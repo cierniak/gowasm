@@ -288,7 +288,7 @@ func mangleFunctionName(pkg, fn string) string {
 
 func positionString(pos token.Pos, fset *token.FileSet) string {
 	position := fset.File(pos).PositionFor(pos, false)
-	return fmt.Sprintf("[%s:%d:%d]", position.Filename, position.Line, position.Offset)
+	return fmt.Sprintf("[%v]", position)
 }
 
 func (file *WasmGoSourceFile) setPackageName() {
@@ -297,6 +297,7 @@ func (file *WasmGoSourceFile) setPackageName() {
 	path := position.Filename
 	lastSlash := strings.LastIndex(path, "/")
 	path = path[:lastSlash]
+	// TODO: support other path patterns.
 	if strings.HasPrefix(path, "src/") {
 		path = path[4:]
 	}

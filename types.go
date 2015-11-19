@@ -79,7 +79,7 @@ func (t *WasmTypePointer) isSigned() bool {
 }
 
 func (t *WasmTypePointer) print(writer FormattingWriter) {
-	writer.Printf("i32 (; %s ;)", t.name)
+	writer.Printf("i32")
 }
 
 func (t *WasmTypeStruct) isSigned() bool {
