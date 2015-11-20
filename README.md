@@ -37,7 +37,7 @@ To see the list of available command line options, run:
 ```
 bin/gowasm --help
 ```
-If you installed the interpreted from the spec repo (see prerequisites), you can run the generated code with:
+If you installed the interpreter from the spec repo (see prerequisites), you can run the generated code with:
 ```
 wasm -t out.wast
 ```
