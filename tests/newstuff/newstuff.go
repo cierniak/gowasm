@@ -1,22 +1,15 @@
 package newstuff
 
-import (
-	"gowasm/rt/gc"
-)
+import "unsafe"
 
 type Point struct {
 	x int32
 	y int32
 }
 
-func newPoint(x, y int32) *Point {
+func H(x, y int32) uintptr {
 	p := &Point{}
-	p.x = x
-	p.y = y
-	return p
-}
-
-func G(x, y int32) int32 {
-	p := newPoint(x, y)
-	return p.x + p.y
+	u1 := unsafe.Pointer(p)
+	u := uintptr(u1)
+	return u
 }

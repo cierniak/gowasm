@@ -58,3 +58,8 @@ func DistanceUnsigned(a, b uint32) uint32 {
 		return b - a
 	}
 }
+
+//wasm:assert_return (invoke "AddUintPtr" (i32.const 5) (i32.const 3)) (i32.const 8)
+func AddUintPtr(x, y uintptr) uintptr {
+	return x + y
+}

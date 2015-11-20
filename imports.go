@@ -33,11 +33,6 @@ func (i *WasmImport) print(writer FormattingWriter) {
 	writer.Printf("))\n")
 }
 
-func isWASMRuntimePackage(expr ast.Expr) bool {
-	ident, ok := expr.(*ast.Ident)
-	return ok && ident.Name == "wasm"
-}
-
 func (s *WasmScope) parseWASMRuntimeSignature(name string) ([]WasmType, error) {
 	result := make([]WasmType, 0, 10)
 	parts := strings.Split(name, "_")

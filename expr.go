@@ -368,15 +368,23 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 	return nil, fmt.Errorf("unimplemented call expression at %s", positionString(call.Lparen, s.f.fset))
 }
 
+func (s *WasmScope) parseUnsafePkgCall(ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
+	name := ident.Name
+	return nil, fmt.Errorf("unsafe package is not implemented yet: %s", name)
+}
+
 func (s *WasmScope) parseCallExprSelector(call *ast.CallExpr, se *ast.SelectorExpr, indent int) (WasmExpression, error) {
-	if isWASMRuntimePackage(se.X) {
-		return s.parseWASMRuntimeCall(se.Sel, call, indent)
-	}
 	switch x := se.X.(type) {
 	default:
 		return nil, fmt.Errorf("unimplemented X in selector: %v", x)
 	case *ast.Ident:
 		pkgShort := x.Name
+		switch pkgShort {
+		case "unsafe":
+			return s.parseUnsafePkgCall(se.Sel, call, indent)
+		case "wasm":
+			return s.parseWASMRuntimeCall(se.Sel, call, indent)
+		}
 		pkgLong, ok := s.f.file.imports[pkgShort]
 		if ok {
 			name := mangleFunctionName(pkgLong, se.Sel.Name)

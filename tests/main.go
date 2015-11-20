@@ -6,6 +6,7 @@ import (
 	"gowasm/tests/fac"
 	"gowasm/tests/i32"
 	"gowasm/tests/mem"
+	"gowasm/tests/newstuff"
 )
 
 func main() {
@@ -25,13 +26,19 @@ func main() {
 	fmt.Printf("-- Asserting return... i32.DivSigned(100, 20) --> %d\n", v32)
 	v32 = i32.NestedLoop(5, 7)
 	fmt.Printf("-- Asserting return... i32.NestedLoop(5, 7) --> %d\n", v32)
+	uip := i32.AddUintPtr(5, 3)
+	fmt.Printf("-- Asserting return... i32.AddUintPtr(5, 3) --> %d\n", v32)
 	v32 = mem.R(16, 8)
 	fmt.Printf("-- Asserting return... mem.R(16, 8) --> %d\n", v32)
 	v32 = mem.F(6)
 	fmt.Printf("-- Asserting return... mem.F(6) --> %d\n", v32)
+	v32 = mem.G(5, 3)
+	fmt.Printf("-- Asserting return... mem.G(5, 3) --> %d\n", v32)
 	v32 = gc.Alloc(128, 64)
 	fmt.Printf("-- Asserting return... gc.Alloc(128, 64) --> %d\n", v32)
 	v32 = gc.Alloc(64, 32)
 	fmt.Printf("-- Asserting return... gc.Alloc(64, 32) --> %d\n", v32)
+	uip = newstuff.H(5, 3)
+	fmt.Printf("-- Asserting return... newstuff.H(5, 3) --> %d\n", uip)
 	fmt.Printf("Tests complete\n")
 }

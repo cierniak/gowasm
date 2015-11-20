@@ -168,10 +168,11 @@ func (file *WasmGoSourceFile) parseAstImportDecl(decl *ast.GenDecl) error {
 		path := strings.Trim(spec.Path.Value, "\"")
 		lastSlash := strings.LastIndex(path, "/")
 		if lastSlash <= 0 {
-			return fmt.Errorf("unexpected path in an import statement: '%s'", path)
+			file.imports[path] = path
+		} else {
+			lastPart := path[lastSlash+1:]
+			file.imports[lastPart] = path
 		}
-		lastPart := path[lastSlash+1:]
-		file.imports[lastPart] = path
 		return nil
 	}
 }

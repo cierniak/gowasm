@@ -30,9 +30,7 @@ func newPoint(x, y int32) *Point {
 	return p
 }
 
-/*
 func G(x, y int32) int32 {
 	p := newPoint(x, y)
 	return p.x + p.y
 }
-*/
