@@ -307,11 +307,8 @@ func (s *WasmScope) parseArgs(args []ast.Expr, indent int) ([]WasmExpression, er
 	return result, nil
 }
 
-func (s *WasmScope) parseConvertExpr(typ string, fun *ast.Ident, v ast.Expr, indent int) (WasmExpression, error) {
-	ty, err := s.f.file.parseAstType(fun)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't parse type name in type conversion: %v", err)
-	}
+func (s *WasmScope) parseConvertExpr(ty WasmType, v ast.Expr, indent int) (WasmExpression, error) {
+	// TODO: Currently type conversions are nops. We need to check that types have the same size and representation.
 	return s.parseExpr(v, ty, indent)
 }
 
@@ -351,7 +348,7 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 		}
 		typ, err := s.f.file.parseAstType(fun)
 		if err == nil && len(call.Args) == 1 {
-			return s.parseConvertExpr(typ.getName(), fun, call.Args[0], indent)
+			return s.parseConvertExpr(typ, call.Args[0], indent)
 		}
 
 		// TODO: Make it work for forward references.
@@ -370,7 +367,20 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 
 func (s *WasmScope) parseUnsafePkgCall(ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
 	name := ident.Name
-	return nil, fmt.Errorf("unsafe package is not implemented yet: %s", name)
+	switch name {
+	default:
+		return nil, s.f.file.ErrorNode(call, "member of 'package unsafe' is not implemented yet: %s", name)
+	case "Pointer":
+		t, err := s.f.file.module.convertAstTypeNameToWasmType("unsafe.Pointer")
+		if err != nil {
+			return nil, s.f.file.ErrorNode(call, "%v", err)
+		}
+		if len(call.Args) == 1 {
+			return s.parseConvertExpr(t, call.Args[0], indent)
+		} else {
+			return nil, s.f.file.ErrorNode(call, "unexpected number of arguments to unsafe.Pointer")
+		}
+	}
 }
 
 func (s *WasmScope) parseCallExprSelector(call *ast.CallExpr, se *ast.SelectorExpr, indent int) (WasmExpression, error) {

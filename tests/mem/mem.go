@@ -1,8 +1,8 @@
 package mem
 
-import (
-	"gowasm/rt/gc"
-)
+import "gowasm/rt/gc"
+import "gowasm/rt/wasm"
+import "unsafe"
 
 type Point struct {
 	x int32
@@ -33,4 +33,13 @@ func newPoint(x, y int32) *Point {
 func G(x, y int32) int32 {
 	p := newPoint(x, y)
 	return p.x + p.y
+}
+
+//wasm:invoke (invoke "PtrConvert")
+func PtrConvert() {
+	p := &Point{}
+	u1 := unsafe.Pointer(p)
+	u := uintptr(u1)
+	i32 := int32(u)
+	wasm.Print_int32(i32)
 }
