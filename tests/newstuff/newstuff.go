@@ -4,8 +4,9 @@ package newstuff
 import "gowasm/rt/wasm"
 
 type Point struct {
-	x int32
-	y int32
+	header int32
+	x      int32
+	y      int32
 }
 
 //wasm:invoke (invoke "PtrConvert")

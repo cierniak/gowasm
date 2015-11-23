@@ -474,6 +474,11 @@ func (s *WasmScope) createFieldAccessExpr(expr *ast.SelectorExpr, x WasmExpressi
 	if err != nil {
 		return nil, fmt.Errorf("error in address computation for field %s: %v", field.name, err)
 	}
+	ptr, err := s.f.file.createPointerType(x.getType())
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a type of pointer to: %v", x.getType().getName())
+	}
+	addr.setFullType(ptr)
 	l := &LValue{
 		addr: addr,
 		t:    x.getType(),
@@ -524,8 +529,40 @@ func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType,
 	return l, nil
 }
 
+func (s *WasmScope) parseExprLValue(expr ast.Expr, typeHint WasmType, indent int) (*LValue, error) {
+	switch expr := expr.(type) {
+	default:
+		return nil, s.f.file.ErrorNode(expr, "unimplemented L-Value expression")
+	case *ast.Ident:
+		// Assume that identifiers that appear as L-expressions are pointers.
+		i, err := s.parseIdent(expr, indent)
+		if err != nil {
+			return nil, err
+		}
+		if i.getType().getName() == "i32" {
+			// TODO: check this is really a pointer type
+			lvalue := &LValue{
+				addr: i,
+				t:    i.getFullType(),
+			}
+			return lvalue, nil
+		}
+		return nil, s.f.file.ErrorNode(expr, "unimplemented L-Value Ident expression")
+	}
+}
+
 func (s *WasmScope) parseStarExpr(expr *ast.StarExpr, typeHint WasmType, indent int) (WasmExpression, error) {
-	return nil, s.f.file.ErrorNode(expr, "StarExpr is not implemented")
+	lvalue, err := s.parseExprLValue(expr.X, typeHint, indent+1)
+	if err != nil {
+		return nil, err
+	}
+	l, err := s.createLoad(lvalue.addr, lvalue.t, indent)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a load in a StarExpr: %v", expr)
+	}
+	l.setScope(s)
+	l.setNode(expr)
+	return l, nil
 }
 
 func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {

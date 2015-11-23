@@ -178,7 +178,7 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 	}
 	ty := rhs.getType()
 	if ty == nil {
-		return nil, fmt.Errorf("error parsing RHS of an assignment: type is nil")
+		return nil, s.f.file.ErrorNode(stmt.Rhs[0], "error parsing RHS of an assignment: type is nil")
 	}
 
 	var v WasmVariable
