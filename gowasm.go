@@ -3,8 +3,10 @@ package main
 // See https://github.com/WebAssembly/spec/tree/master/ml-proto
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
 	"strings"
 	"unicode"
@@ -305,6 +307,17 @@ func (file *WasmGoSourceFile) setPackageName() {
 	file.pkgName = path
 }
 
+func (file *WasmGoSourceFile) getSingleLineGoSource(node ast.Node) string {
+	var buf bytes.Buffer
+	printer.Fprint(&buf, file.fset, node)
+	s := buf.String()
+	if strings.Contains(s, "\n") {
+		return ""
+	} else {
+		return s
+	}
+}
+
 func (e *GoWasmError) Error() string {
 	return e.msg
 }
@@ -313,6 +326,10 @@ func (file *WasmGoSourceFile) ErrorNode(node ast.Node, format string, a ...inter
 	pos := node.Pos()
 	position := file.fset.File(pos).PositionFor(pos, false)
 	s := fmt.Sprintf(format, a...)
+	src := file.getSingleLineGoSource(node)
+	if src != "" {
+		s = fmt.Sprintf("%s (src: %s)", s, src)
+	}
 	e := &GoWasmError{
 		msg: fmt.Sprintf("%s @ %v", s, position),
 	}

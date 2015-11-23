@@ -1,6 +1,6 @@
 package newstuff
 
-import "unsafe"
+//import "unsafe"
 import "gowasm/rt/wasm"
 
 type Point struct {
@@ -11,8 +11,8 @@ type Point struct {
 //wasm:invoke (invoke "PtrConvert")
 func PtrConvert() {
 	p := &Point{}
-	u1 := unsafe.Pointer(p)
-	u := uintptr(u1)
-	i32 := int32(u)
+	p.x = int32(17)
+	xp := &p.x
+	i32 := *xp
 	wasm.Print_int32(i32)
 }

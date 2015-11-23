@@ -182,7 +182,7 @@ func (e *WasmExprBase) getComment() string {
 	}
 	var src string
 	if e.astNode != nil {
-		src = e.scope.f.getSingleLineGoSource(e.astNode)
+		src = e.scope.f.file.getSingleLineGoSource(e.astNode)
 		result += src
 	}
 	if e.comment != "" {
@@ -209,7 +209,7 @@ func (e *WasmExprBase) setScope(scope *WasmScope) {
 func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (WasmExpression, error) {
 	switch expr := expr.(type) {
 	default:
-		return nil, fmt.Errorf("unimplemented expression at %s", positionString(expr.Pos(), s.f.fset))
+		return nil, s.f.file.ErrorNode(expr, "unimplemented expression")
 	case *ast.BasicLit:
 		return s.parseBasicLit(expr, typeHint, indent)
 	case *ast.BinaryExpr:
@@ -222,6 +222,8 @@ func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (Was
 		return s.parseParenExpr(expr, typeHint, indent)
 	case *ast.SelectorExpr:
 		return s.parseSelectorExpr(expr, typeHint, indent)
+	case *ast.StarExpr:
+		return s.parseStarExpr(expr, typeHint, indent)
 	case *ast.UnaryExpr:
 		return s.parseUnaryExpr(expr, indent)
 	}
@@ -515,11 +517,15 @@ func (s *WasmScope) parseSelectorExpr(expr *ast.SelectorExpr, typeHint WasmType,
 	}
 	l, err := s.createLoad(lvalue.addr, lvalue.t, indent)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't create a load in a SelectorExpr", expr)
+		return nil, fmt.Errorf("couldn't create a load in a SelectorExpr: %v", expr)
 	}
 	l.setScope(s)
 	l.setNode(expr)
 	return l, nil
+}
+
+func (s *WasmScope) parseStarExpr(expr *ast.StarExpr, typeHint WasmType, indent int) (WasmExpression, error) {
+	return nil, s.f.file.ErrorNode(expr, "StarExpr is not implemented")
 }
 
 func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
@@ -561,6 +567,12 @@ func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, e
 		return nil, fmt.Errorf("unsupported address-of operand: %v", expr)
 	case *ast.CompositeLit:
 		return s.parseStructAlloc(expr, indent)
+	case *ast.SelectorExpr:
+		lvalue, err := s.parseSelectorExprLValue(expr, nil, indent)
+		if err != nil {
+			return nil, fmt.Errorf("error in address computation for SelectorExpr %v: %v", expr, err)
+		}
+		return lvalue.addr, nil
 	}
 }
 
