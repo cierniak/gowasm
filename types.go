@@ -97,13 +97,13 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 		return nil, fmt.Errorf("unimplemented scalar type: '%s'", name)
 	case "int32":
 		t.setName("i32")
-		t.setSize(32)
-		t.setAlign(32)
+		t.setSize(4)
+		t.setAlign(4)
 		t.signed = true
 	case "int64":
 		t.setName("i64")
-		t.setSize(64)
-		t.setAlign(64)
+		t.setSize(8)
+		t.setAlign(8)
 		t.signed = true
 	case "uint32":
 		fallthrough
@@ -111,8 +111,8 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 		fallthrough
 	case "uintptr":
 		t.setName("i32")
-		t.setSize(32)
-		t.setAlign(32)
+		t.setSize(4)
+		t.setAlign(4)
 		t.signed = false
 	}
 	return t, nil
@@ -152,8 +152,8 @@ func (file *WasmGoSourceFile) createPointerType(t WasmType) (WasmType, error) {
 		base: t,
 	}
 	ptrTy.setName(fmt.Sprintf("*%s", t.getName()))
-	ptrTy.setAlign(32)
-	ptrTy.setSize(32)
+	ptrTy.setAlign(4)
+	ptrTy.setSize(4)
 	return ptrTy, nil
 }
 
@@ -180,7 +180,7 @@ func (file *WasmGoSourceFile) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.F
 	case *ast.StructType:
 		st := &WasmTypeStruct{}
 		st.setName(name)
-		st.setAlign(64)
+		st.setAlign(8)
 		// Insert incomplete the type declaration now to handle recursive types.
 		file.module.types[name] = st
 		return file.parseAstStructType(st, astType, fset)

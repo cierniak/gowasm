@@ -667,7 +667,7 @@ func (l *WasmLoad) getType() WasmType {
 
 func (l *WasmLoad) print(writer FormattingWriter) {
 	var ts string
-	if l.getType().getSize() == 32 {
+	if l.getType().getSize() == 4 {
 		ts = "i32"
 	} else {
 		panic(fmt.Errorf("uimplemented load type: %v", l.getType()))
@@ -683,7 +683,7 @@ func (s *WasmStore) getType() WasmType {
 
 func (s *WasmStore) print(writer FormattingWriter) {
 	var ts string
-	if s.getType().getSize() == 32 {
+	if s.getType().getSize() == 4 {
 		ts = "i32"
 	} else {
 		panic(fmt.Errorf("uimplemented store type: %v", s.getType()))
