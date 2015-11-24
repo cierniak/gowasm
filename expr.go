@@ -311,7 +311,12 @@ func (s *WasmScope) parseArgs(args []ast.Expr, indent int) ([]WasmExpression, er
 
 func (s *WasmScope) parseConvertExpr(ty WasmType, v ast.Expr, indent int) (WasmExpression, error) {
 	// TODO: Currently type conversions are nops. We need to check that types have the same size and representation.
-	return s.parseExpr(v, ty, indent)
+	expr, err := s.parseExpr(v, ty, indent)
+	if err != nil {
+		return nil, err
+	}
+	expr.setFullType(ty)
+	return expr, nil
 }
 
 func (s *WasmScope) createCallExprWithArgs(call *ast.CallExpr, name string, fn *WasmFunc, args []WasmExpression, indent int) (WasmExpression, error) {
@@ -341,18 +346,19 @@ func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc
 func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
 	switch fun := call.Fun.(type) {
 	default:
-		return nil, fmt.Errorf("unimplemented function: %v at %s", fun, positionString(call.Lparen, s.f.fset))
+		return nil, s.f.file.ErrorNode(call, "unimplemented function")
 	case *ast.Ident:
+		typ, err := s.f.file.parseAstType(fun)
+		if err == nil && len(call.Args) == 1 {
+			return s.parseConvertExpr(typ, call.Args[0], indent)
+		}
+
 		var name string
 		fn, ok := s.f.module.functionMap2[fun.Obj]
 		if ok {
 			name = fn.name
 		} else {
 			name = astNameToWASM(fun.Name, nil)
-		}
-		typ, err := s.f.file.parseAstType(fun)
-		if err == nil && len(call.Args) == 1 {
-			return s.parseConvertExpr(typ, call.Args[0], indent)
 		}
 
 		// TODO: Make it work for forward references.
@@ -363,6 +369,12 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 			return nil, fmt.Errorf("function %s undefined (forward reference?)", name)
 
 		}
+	case *ast.ParenExpr:
+		typ, err := s.f.file.parseAstType(fun.X)
+		if err == nil && len(call.Args) == 1 {
+			return s.parseConvertExpr(typ, call.Args[0], indent)
+		}
+		return nil, s.f.file.ErrorNode(call, "unimplemented function: ParenExpr")
 	case *ast.SelectorExpr:
 		return s.parseCallExprSelector(call, fun, indent)
 	}
