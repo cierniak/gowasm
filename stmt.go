@@ -157,8 +157,8 @@ func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty WasmType, indent int) (Was
 	}
 }
 
-func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, indent int) (WasmExpression, error) {
-	return s.createStore(lvalue.addr, rhs, rhs.getType(), indent)
+func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
+	return s.createStore(lvalue.addr, rhs, rhs.getType(), stmt, indent)
 }
 
 func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
@@ -190,13 +190,13 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 		return nil, err
 	}
 	if lvalue != nil {
-		return s.parseAssignToLvalue(lvalue, rhs, indent)
+		return s.parseAssignToLvalue(lvalue, rhs, stmt, indent)
 	} else {
 		return s.createSetVar(v, rhs, stmt, indent)
 	}
 }
 
-func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, indent int) (WasmExpression, error) {
+func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, stmt ast.Stmt, indent int) (WasmExpression, error) {
 	store := &WasmStore{
 		addr: addr,
 		val:  val,
@@ -204,6 +204,7 @@ func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, indent int
 	}
 	store.setIndent(indent)
 	store.setScope(s)
+	store.setNode(stmt)
 	return store, nil
 }
 
@@ -216,11 +217,10 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 		if err != nil {
 			return nil, fmt.Errorf("couldn't create address for global %s", v.getName())
 		}
-		store, err := s.createStore(addr, rhs, addr.getType(), indent)
+		store, err := s.createStore(addr, rhs, addr.getType(), stmt, indent)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't generate a store for global %s", v.getName())
 		}
-		store.setNode(stmt)
 		store.setComment(fmt.Sprintf("set_global %s", v.getName()))
 		sg := &WasmSetGlobal{
 			lhs:   v,

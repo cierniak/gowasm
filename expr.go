@@ -324,7 +324,9 @@ func (s *WasmScope) createCallExprWithArgs(call *ast.CallExpr, name string, fn *
 	c.setIndent(indent)
 	c.setNode(call)
 	c.setScope(s)
-	c.setFullType(fn.result.t)
+	if fn.result != nil {
+		c.setFullType(fn.result.t)
+	}
 	return c, nil
 }
 

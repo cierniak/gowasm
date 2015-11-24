@@ -43,3 +43,12 @@ func PtrConvert() {
 	i32 := int32(u)
 	wasm.Print_int32(i32)
 }
+
+//wasm:invoke (invoke "PtrToInt32")
+func PtrToInt32() {
+	p := &Point{}
+	p.x = int32(17)
+	xp := &p.x
+	i32 := *xp
+	wasm.Print_int32(i32)
+}
