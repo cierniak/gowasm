@@ -259,8 +259,11 @@ func (s *WasmScope) parseDeclStmt(stmt *ast.DeclStmt, indent int) (WasmExpressio
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("parseDeclStmt, v: %v\n", v)
-			return nil, s.f.file.ErrorNode(decl, "unimplemented var DeclStmt")
+			zero, err := s.createLiteral("0", v.getType(), indent+2)
+			if err != nil {
+				return nil, err
+			}
+			return s.createSetVar(v, zero, stmt, indent)
 		}
 	}
 }
