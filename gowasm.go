@@ -120,7 +120,7 @@ func (m *WasmModule) addAstFile(f *ast.File, fset *token.FileSet) error {
 					return err
 				}
 			case token.VAR:
-				_, err := file.parseAstVarDecl(decl, file.fset)
+				_, err := file.parseAstVarDeclGlobal(decl, file.fset)
 				if err != nil {
 					return err
 				}

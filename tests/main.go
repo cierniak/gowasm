@@ -40,7 +40,9 @@ func main() {
 	fmt.Printf("-- Asserting return... gc.Alloc(128, 64) --> %d\n", v32)
 	v32 = gc.Alloc(64, 32)
 	fmt.Printf("-- Asserting return... gc.Alloc(64, 32) --> %d\n", v32)
-	newstuff.PtrConvert()
-	fmt.Printf("-- Invoking... newstuff.PtrConvert()\n")
+	//newstuff.DumpMemory(0, 10)
+	//fmt.Printf("-- Invoking... newstuff.DumpMemory(0, 10)\n")
+	newstuff.Peek32(0)
+	fmt.Printf("-- Invoking... newstuff.Peek32(0)\n")
 	fmt.Printf("Tests complete\n")
 }

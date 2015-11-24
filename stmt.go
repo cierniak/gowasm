@@ -97,11 +97,13 @@ func (s *WasmScope) parseStatementList(stmts []ast.Stmt, indent int) error {
 func (s *WasmScope) parseStmt(stmt ast.Stmt, indent int) (WasmExpression, error) {
 	switch stmt := stmt.(type) {
 	default:
-		panic(fmt.Errorf("unimplemented statement: %v", stmt))
+		return nil, s.f.file.ErrorNode(stmt, "unimplemented statement")
 	case *ast.AssignStmt:
 		return s.parseAssignStmt(stmt, indent)
 	case *ast.BlockStmt:
 		return s.parseBlockStmt(stmt, indent)
+	case *ast.DeclStmt:
+		return s.parseDeclStmt(stmt, indent)
 	case *ast.ExprStmt:
 		return s.parseExprStmt(stmt, indent)
 	case *ast.ForStmt:
@@ -129,14 +131,7 @@ func (s *WasmScope) parseDefineAssignLHS(lhs []ast.Expr, ty WasmType, indent int
 	default:
 		return nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
 	case *ast.Ident:
-		v := &WasmLocal{
-			astIdent: lhs,
-			name:     astNameToWASM(lhs.Name, s),
-			t:        ty,
-		}
-		s.f.module.variables[lhs.Obj] = v
-		s.f.locals = append(s.f.locals, v)
-		return v, nil
+		return s.createLocalVar(lhs, ty)
 	}
 }
 
@@ -249,6 +244,25 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 	sl.setFullType(rhs.getFullType())
 	v.setFullType(rhs.getFullType())
 	return sl, nil
+}
+
+func (s *WasmScope) parseDeclStmt(stmt *ast.DeclStmt, indent int) (WasmExpression, error) {
+	switch decl := stmt.Decl.(type) {
+	default:
+		return nil, s.f.file.ErrorNode(decl, "unimplemented decl")
+	case *ast.GenDecl:
+		switch decl.Tok {
+		default:
+			return nil, s.f.file.ErrorNode(decl, "unimplemented decl token '%v'", decl.Tok)
+		case token.VAR:
+			v, err := s.parseAstVarDeclLocal(decl)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Printf("parseDeclStmt, v: %v\n", v)
+			return nil, s.f.file.ErrorNode(decl, "unimplemented var DeclStmt")
+		}
+	}
 }
 
 func (s *WasmScope) parseExprStmt(stmt *ast.ExprStmt, indent int) (WasmExpression, error) {

@@ -79,7 +79,8 @@ func (s *WasmSetGlobal) getNode() ast.Node {
 	}
 }
 
-func (file *WasmGoSourceFile) parseAstVarDecl(decl *ast.GenDecl, fset *token.FileSet) (WasmVariable, error) {
+// TODO: refactor parseAstVarDeclGlobal and parseAstVarDeclLocal to share code.
+func (file *WasmGoSourceFile) parseAstVarDeclGlobal(decl *ast.GenDecl, fset *token.FileSet) (WasmVariable, error) {
 	if len(decl.Specs) != 1 {
 		return nil, fmt.Errorf("unsupported variable declaration with %d specs", len(decl.Specs))
 	}
@@ -87,11 +88,24 @@ func (file *WasmGoSourceFile) parseAstVarDecl(decl *ast.GenDecl, fset *token.Fil
 	default:
 		return nil, fmt.Errorf("unsupported variable declaration with spec: %v at %s", spec, positionString(spec.Pos(), fset))
 	case *ast.ValueSpec:
-		return file.parseAstVarSpec(spec, fset)
+		return file.parseAstVarSpecGlobal(spec, fset)
 	}
 }
 
-func (file *WasmGoSourceFile) parseAstVarSpec(spec *ast.ValueSpec, fset *token.FileSet) (WasmVariable, error) {
+func (s *WasmScope) parseAstVarDeclLocal(decl *ast.GenDecl) (WasmVariable, error) {
+	if len(decl.Specs) != 1 {
+		return nil, s.f.file.ErrorNode(decl, "unsupported variable declaration (%d spec)", len(decl.Specs))
+	}
+	switch spec := decl.Specs[0].(type) {
+	default:
+		fmt.Printf("parseAstVarDeclLocal, spec: %v\n", spec)
+		return nil, s.f.file.ErrorNode(decl, "unsupported variable declaration")
+	case *ast.ValueSpec:
+		return s.parseAstVarSpecLocal(spec)
+	}
+}
+
+func (file *WasmGoSourceFile) parseAstVarSpecGlobal(spec *ast.ValueSpec, fset *token.FileSet) (WasmVariable, error) {
 	if len(spec.Names) != 1 {
 		return nil, fmt.Errorf("unsupported variable declaration with %d names", len(spec.Names))
 	}
@@ -113,5 +127,29 @@ func (file *WasmGoSourceFile) parseAstVarSpec(spec *ast.ValueSpec, fset *token.F
 		// This is a magic name of a global variable used for allocating memory from the heap.
 		file.module.freePtrAddr = v.addr
 	}
+	return v, nil
+}
+
+func (s *WasmScope) parseAstVarSpecLocal(spec *ast.ValueSpec) (WasmVariable, error) {
+	if len(spec.Names) != 1 {
+		return nil, s.f.file.ErrorNode(spec, "unsupported variable declaration (%d names)", len(spec.Names))
+	}
+	ident := spec.Names[0]
+	name := ident.Name
+	t, err := s.f.file.parseAstType(spec.Type)
+	if err != nil {
+		return nil, s.f.file.ErrorNode(spec, "unsupported type for variable %s", name)
+	}
+	return s.createLocalVar(ident, t)
+}
+
+func (s *WasmScope) createLocalVar(ident *ast.Ident, ty WasmType) (WasmVariable, error) {
+	v := &WasmLocal{
+		astIdent: ident,
+		name:     astNameToWASM(ident.Name, s),
+		t:        ty,
+	}
+	s.f.module.variables[ident.Obj] = v
+	s.f.locals = append(s.f.locals, v)
 	return v, nil
 }
