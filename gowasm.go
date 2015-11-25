@@ -51,12 +51,6 @@ type WasmModule struct {
 	freePtrAddr  int32
 }
 
-type WasmMemory struct {
-	size          int
-	globalVarAddr int
-	content       []byte
-}
-
 type WasmGoSourceFile struct {
 	astFile *ast.File
 	fset    *token.FileSet
@@ -66,12 +60,6 @@ type WasmGoSourceFile struct {
 }
 
 func NewWasmModuleLinker() WasmModuleLinker {
-	size := 1024
-	memory := &WasmMemory{
-		size:          size,
-		globalVarAddr: 4,
-		content:       make([]byte, 0, size),
-	}
 	m := &WasmModule{
 		indent:       0,
 		files:        make([]*WasmGoSourceFile, 0, 10),
@@ -84,7 +72,7 @@ func NewWasmModuleLinker() WasmModuleLinker {
 		imports:      make(map[string]*WasmImport),
 		assertReturn: make([]string, 0, 10),
 		invoke:       make([]string, 0, 10),
-		memory:       memory,
+		memory:       createMemory(1024),
 	}
 	return m
 }
@@ -207,44 +195,6 @@ func (file *WasmGoSourceFile) parsePragma(p string) {
 	} else if strings.HasPrefix(p, invokePrefix) {
 		file.module.invoke = append(file.module.invoke, strings.TrimPrefix(p, invokePrefix))
 	}
-}
-
-func (memory *WasmMemory) addGlobal(addr, size int) {
-	limit := addr + size
-	if limit > cap(memory.content) {
-		panic(fmt.Sprintf("Address %d is too large", addr))
-	}
-	if limit > len(memory.content) {
-		memory.content = memory.content[:limit]
-	}
-}
-
-func (memory *WasmMemory) writeInt32(addr int, val int32) {
-	memory.addGlobal(addr, 4)
-	for i := 0; i < 4; i++ {
-		b := val & 0xff
-		memory.content[addr+i] = byte(b)
-		val >>= 8
-	}
-}
-
-func (memory *WasmMemory) print(writer FormattingWriter) {
-	indent := 1
-	writer.Printf("\n")
-	writer.PrintfIndent(indent, "(memory %d\n", memory.size)
-
-	// Globals segment
-	writer.PrintfIndent(indent+1, "(segment 0 \"")
-	for _, b := range memory.content {
-		writer.Printf("\\%02x", b)
-	}
-	writer.Printf("\") ;; global variables\n")
-
-	// Heap segment
-	writer.PrintfIndent(indent+1, "(segment %d \"", len(memory.content))
-	writer.Printf("\") ;; heap\n")
-
-	writer.PrintfIndent(indent, ")\n")
 }
 
 func (m *WasmModule) printGlobalVars(writer FormattingWriter) {
