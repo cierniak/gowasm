@@ -1,5 +1,12 @@
 package i32
 
+var global32 int32 = 15
+
+//wasm:assert_return (invoke "TestGlobalVar") (i32.const 15)
+func TestGlobalVar() int32 {
+	return global32
+}
+
 //wasm:assert_return (invoke "Add" (i32.const 1) (i32.const 5)) (i32.const 6)
 func Add(a, b int32) int32 {
 	c := a

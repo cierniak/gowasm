@@ -28,6 +28,8 @@ func main() {
 	fmt.Printf("-- Asserting return... i32.NestedLoop(5, 7) --> %d\n", v32)
 	uip := i32.AddUintPtr(5, 3)
 	fmt.Printf("-- Asserting return... i32.AddUintPtr(5, 3) --> %d\n", uip)
+	i32.TestGlobalVar()
+	fmt.Printf("-- Invoking... i32.TestGlobalVar()\n")
 	v32 = mem.R(16, 8)
 	fmt.Printf("-- Asserting return... mem.R(16, 8) --> %d\n", v32)
 	v32 = mem.F(6)
@@ -44,7 +46,7 @@ func main() {
 	fmt.Printf("-- Asserting return... gc.Alloc(128, 64) --> %d\n", v32)
 	v32 = gc.Alloc(64, 32)
 	fmt.Printf("-- Asserting return... gc.Alloc(64, 32) --> %d\n", v32)
-	newstuff.TestGlobalVar()
-	fmt.Printf("-- Invoking... newstuff.TestGlobalVar()\n")
+	v32 = newstuff.Test1()
+	fmt.Printf("-- Invoking... newstuff.Test1() --> %d\n", v32)
 	fmt.Printf("Tests complete\n")
 }
