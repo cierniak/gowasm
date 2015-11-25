@@ -118,11 +118,12 @@ func (file *WasmGoSourceFile) parseAstVarSpecGlobal(spec *ast.ValueSpec, fset *t
 	v := &WasmGlobalVar{
 		name:   name,
 		t:      t,
-		addr:   int32(file.module.globalVarAddr), // TODO: take alignment into account
+		addr:   int32(file.module.memory.globalVarAddr), // TODO: take alignment into account
 		indent: 1,
 	}
 	file.module.variables[ident.Obj] = v
-	file.module.globalVarAddr += t.getSize()
+	file.module.memory.addGlobal(int(v.addr), t.getSize())
+	file.module.memory.globalVarAddr += t.getSize()
 	if name == "freePointer" {
 		// This is a magic name of a global variable used for allocating memory from the heap.
 		file.module.freePtrAddr = v.addr

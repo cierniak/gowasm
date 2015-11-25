@@ -34,21 +34,27 @@ type WasmVariable interface {
 
 // module:  ( module <type>* <func>* <global>* <import>* <export>* <table>* <memory>? )
 type WasmModule struct {
-	indent        int
-	name          string
-	namePos       token.Pos
-	files         []*WasmGoSourceFile
-	functions     []*WasmFunc
-	functionMap   map[*ast.FuncDecl]*WasmFunc
-	functionMap2  map[*ast.Object]*WasmFunc
-	funcSymTab    map[string]*WasmFunc
-	types         map[string]WasmType
-	variables     map[*ast.Object]WasmVariable
-	imports       map[string]*WasmImport
-	assertReturn  []string
-	invoke        []string
+	indent       int
+	name         string
+	namePos      token.Pos
+	files        []*WasmGoSourceFile
+	functions    []*WasmFunc
+	functionMap  map[*ast.FuncDecl]*WasmFunc
+	functionMap2 map[*ast.Object]*WasmFunc
+	funcSymTab   map[string]*WasmFunc
+	types        map[string]WasmType
+	variables    map[*ast.Object]WasmVariable
+	imports      map[string]*WasmImport
+	assertReturn []string
+	invoke       []string
+	memory       *WasmMemory
+	freePtrAddr  int32
+}
+
+type WasmMemory struct {
+	size          int
 	globalVarAddr int
-	freePtrAddr   int32
+	content       []byte
 }
 
 type WasmGoSourceFile struct {
@@ -60,19 +66,25 @@ type WasmGoSourceFile struct {
 }
 
 func NewWasmModuleLinker() WasmModuleLinker {
+	size := 1024
+	memory := &WasmMemory{
+		size:          size,
+		globalVarAddr: 4,
+		content:       make([]byte, 0, size),
+	}
 	m := &WasmModule{
-		indent:        0,
-		files:         make([]*WasmGoSourceFile, 0, 10),
-		functions:     make([]*WasmFunc, 0, 10),
-		functionMap:   make(map[*ast.FuncDecl]*WasmFunc),
-		functionMap2:  make(map[*ast.Object]*WasmFunc),
-		funcSymTab:    make(map[string]*WasmFunc),
-		types:         make(map[string]WasmType),
-		variables:     make(map[*ast.Object]WasmVariable),
-		imports:       make(map[string]*WasmImport),
-		assertReturn:  make([]string, 0, 10),
-		invoke:        make([]string, 0, 10),
-		globalVarAddr: 32,
+		indent:       0,
+		files:        make([]*WasmGoSourceFile, 0, 10),
+		functions:    make([]*WasmFunc, 0, 10),
+		functionMap:  make(map[*ast.FuncDecl]*WasmFunc),
+		functionMap2: make(map[*ast.Object]*WasmFunc),
+		funcSymTab:   make(map[string]*WasmFunc),
+		types:        make(map[string]WasmType),
+		variables:    make(map[*ast.Object]WasmVariable),
+		imports:      make(map[string]*WasmImport),
+		assertReturn: make([]string, 0, 10),
+		invoke:       make([]string, 0, 10),
+		memory:       memory,
 	}
 	return m
 }
@@ -139,6 +151,7 @@ func (m *WasmModule) finalize() error {
 			return fmt.Errorf("error in finalizing file %s: %v", file.pkgName, err)
 		}
 	}
+	m.memory.writeInt32(int(m.freePtrAddr), int32(len(m.memory.content)))
 	return nil
 }
 
@@ -196,18 +209,41 @@ func (file *WasmGoSourceFile) parsePragma(p string) {
 	}
 }
 
-func (m *WasmModule) printMemory(writer FormattingWriter) {
+func (memory *WasmMemory) addGlobal(addr, size int) {
+	fmt.Printf("addGlobal, addr: %d, size: %d\n", addr, size)
+	limit := addr + size
+	if limit > cap(memory.content) {
+		panic(fmt.Sprintf("Address %d is too large", addr))
+	}
+	if limit > len(memory.content) {
+		memory.content = memory.content[:limit]
+	}
+}
+
+func (memory *WasmMemory) writeInt32(addr int, val int32) {
+	fmt.Printf("writeInt32, addr: %d, val: %d\n", addr, val)
+	memory.addGlobal(addr, 4)
+	for i := 0; i < 4; i++ {
+		b := val & 0xff
+		memory.content[addr+i] = byte(b)
+		val >>= 8
+	}
+}
+
+func (memory *WasmMemory) print(writer FormattingWriter) {
 	indent := 1
-	size := 1024
 	writer.Printf("\n")
-	writer.PrintfIndent(indent, "(memory %d\n", size)
+	writer.PrintfIndent(indent, "(memory %d\n", memory.size)
 
 	// Globals segment
 	writer.PrintfIndent(indent+1, "(segment 0 \"")
+	for _, b := range memory.content {
+		writer.Printf("\\%02x", b)
+	}
 	writer.Printf("\") ;; global variables\n")
 
 	// Heap segment
-	writer.PrintfIndent(indent+1, "(segment %d \"", m.globalVarAddr)
+	writer.PrintfIndent(indent+1, "(segment %d \"", len(memory.content))
 	writer.Printf("\") ;; heap\n")
 
 	writer.PrintfIndent(indent, ")\n")
@@ -258,7 +294,7 @@ func (m *WasmModule) print(writer FormattingWriter) {
 	for _, f := range m.files {
 		f.print(writer)
 	}
-	m.printMemory(writer)
+	m.memory.print(writer)
 	m.printImports(writer)
 	m.printGlobalVars(writer)
 	for _, f := range m.functions {
