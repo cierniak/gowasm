@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"strconv"
 )
 
 type WasmGlobalVar struct {
@@ -98,10 +99,47 @@ func (s *WasmScope) parseAstVarDeclLocal(decl *ast.GenDecl) (WasmVariable, error
 	}
 	switch spec := decl.Specs[0].(type) {
 	default:
-		fmt.Printf("parseAstVarDeclLocal, spec: %v\n", spec)
 		return nil, s.f.file.ErrorNode(decl, "unsupported variable declaration")
 	case *ast.ValueSpec:
 		return s.parseAstVarSpecLocal(spec)
+	}
+}
+
+func (file *WasmGoSourceFile) initializeGlobalVarBasicLit(v *WasmGlobalVar, lit *ast.BasicLit) error {
+	switch lit.Kind {
+	default:
+		return file.ErrorNode(lit, "unsupported variable initialization of kind %v", lit.Kind)
+	case token.INT:
+		switch v.getType().getSize() {
+		default:
+			return file.ErrorNode(lit, "unsupported variable initialization of int of size %d", v.getType().getSize())
+		case 4:
+			val, err := strconv.ParseInt(lit.Value, 10, 64)
+			if err != nil {
+				return file.ErrorNode(lit, "couldn't parse int value '%s': %v", lit.Value, err)
+			}
+			file.module.memory.writeInt32(int(v.addr), int32(val))
+			return nil
+		}
+		return file.ErrorNode(lit, "unsupported INT in variable initialization")
+	}
+	return file.ErrorNode(lit, "unsupported BasicLit in variable initialization")
+}
+
+func (file *WasmGoSourceFile) initializeGlobalVar(v *WasmGlobalVar, spec *ast.ValueSpec) error {
+	values := spec.Values
+	if values == nil {
+		return nil // no initializer
+	}
+	if len(values) != 1 {
+		return file.ErrorNode(spec, fmt.Sprintf("unsupported variable declaration with %d values", len(values)))
+	}
+
+	switch val := values[0].(type) {
+	default:
+		return file.ErrorNode(val, "unsupported variable initialization")
+	case *ast.BasicLit:
+		return file.initializeGlobalVarBasicLit(v, val)
 	}
 }
 
@@ -123,6 +161,10 @@ func (file *WasmGoSourceFile) parseAstVarSpecGlobal(spec *ast.ValueSpec, fset *t
 	}
 	file.module.variables[ident.Obj] = v
 	file.module.memory.addGlobal(int(v.addr), t.getSize())
+	err = file.initializeGlobalVar(v, spec)
+	if err != nil {
+		return nil, err
+	}
 	file.module.memory.globalVarAddr += t.getSize()
 	if name == "freePointer" {
 		// This is a magic name of a global variable used for allocating memory from the heap.

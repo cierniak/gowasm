@@ -210,7 +210,6 @@ func (file *WasmGoSourceFile) parsePragma(p string) {
 }
 
 func (memory *WasmMemory) addGlobal(addr, size int) {
-	fmt.Printf("addGlobal, addr: %d, size: %d\n", addr, size)
 	limit := addr + size
 	if limit > cap(memory.content) {
 		panic(fmt.Sprintf("Address %d is too large", addr))
@@ -221,7 +220,6 @@ func (memory *WasmMemory) addGlobal(addr, size int) {
 }
 
 func (memory *WasmMemory) writeInt32(addr int, val int32) {
-	fmt.Printf("writeInt32, addr: %d, val: %d\n", addr, val)
 	memory.addGlobal(addr, 4)
 	for i := 0; i < 4; i++ {
 		b := val & 0xff
@@ -255,7 +253,6 @@ func (m *WasmModule) printGlobalVars(writer FormattingWriter) {
 		switch v := v.(type) {
 		case *WasmGlobalVar:
 			if !headerPrinted {
-				writer.Printf("\n")
 				writer.PrintfIndent(1, ";; Global variables\n")
 				headerPrinted = true
 			}
@@ -265,6 +262,7 @@ func (m *WasmModule) printGlobalVars(writer FormattingWriter) {
 }
 
 func (m *WasmModule) printImports(writer FormattingWriter) {
+	writer.Printf("\n")
 	for _, i := range m.imports {
 		i.print(writer)
 	}
@@ -295,8 +293,8 @@ func (m *WasmModule) print(writer FormattingWriter) {
 		f.print(writer)
 	}
 	m.memory.print(writer)
-	m.printImports(writer)
 	m.printGlobalVars(writer)
+	m.printImports(writer)
 	for _, f := range m.functions {
 		writer.Printf("\n")
 		f.print(writer)
