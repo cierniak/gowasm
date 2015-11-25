@@ -71,3 +71,11 @@ func DistanceUnsigned(a, b uint32) uint32 {
 func AddUintPtr(x, y uintptr) uintptr {
 	return x + y
 }
+
+//wasm:assert_return (invoke "UntypedLiteral") (i32.const 14)
+func UntypedLiteral() int32 {
+	var i int
+	i = 13
+	j := 1
+	return int32(i + j)
+}

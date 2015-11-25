@@ -181,7 +181,7 @@ func (s *WasmScope) parseAstVarSpecLocal(spec *ast.ValueSpec) (WasmVariable, err
 	name := ident.Name
 	t, err := s.f.file.parseAstType(spec.Type)
 	if err != nil {
-		return nil, s.f.file.ErrorNode(spec, "unsupported type for variable %s", name)
+		return nil, s.f.file.ErrorNode(spec, "unsupported type for variable %s: %v", name, err)
 	}
 	return s.createLocalVar(ident, t)
 }

@@ -251,7 +251,16 @@ func (s *WasmScope) createLiteral(value string, ty WasmType, indent int) (WasmEx
 
 func (s *WasmScope) parseBasicLit(lit *ast.BasicLit, typeHint WasmType, indent int) (WasmExpression, error) {
 	if typeHint == nil {
-		return nil, fmt.Errorf("not implemented: BasicLit without type hint: %v", lit.Value)
+		switch lit.Kind {
+		default:
+			return nil, s.f.file.ErrorNode(lit, "not implemented: BasicLit without type hint: %v", lit.Value)
+		case token.INT:
+			t, err := s.f.file.module.convertAstTypeNameToWasmType("int")
+			if err != nil {
+				return nil, err
+			}
+			return s.parseBasicLit(lit, t, indent)
+		}
 	}
 	return s.createLiteral(lit.Value, typeHint, indent)
 }

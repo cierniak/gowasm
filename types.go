@@ -105,6 +105,8 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 		t.setSize(8)
 		t.setAlign(8)
 		t.signed = true
+	case "int":
+		fallthrough
 	case "uint32":
 		fallthrough
 	case "unsafe.Pointer":
