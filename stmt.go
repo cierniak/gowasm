@@ -420,6 +420,8 @@ func (s *WasmScope) parseReturnStmt(stmt *ast.ReturnStmt, indent int) (WasmExpre
 		stmt: stmt,
 	}
 	r.setIndent(indent)
+	r.setNode(stmt)
+	r.setScope(s)
 	if stmt.Results != nil {
 		if len(stmt.Results) != 1 {
 			return nil, fmt.Errorf("unimplemented multi-value return statement")
@@ -474,7 +476,7 @@ func (r *WasmReturn) getType() WasmType {
 }
 
 func (r *WasmReturn) print(writer FormattingWriter) {
-	writer.PrintfIndent(r.getIndent(), "(return\n")
+	writer.PrintfIndent(r.getIndent(), "(return%s\n", r.getComment())
 	if r.value != nil {
 		r.value.print(writer)
 	}
