@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
 )
 
 type WasmType interface {
@@ -167,29 +166,31 @@ func (file *WasmGoSourceFile) parseAstTypeDecl(decl *ast.GenDecl) (WasmType, err
 	default:
 		return nil, fmt.Errorf("unsupported type declaration with spec: %v at %s", spec, positionString(spec.Pos(), file.fset))
 	case *ast.TypeSpec:
-		return file.parseAstTypeSpec(spec, file.fset)
+		return file.parseAstTypeSpec(spec)
 	}
 }
 
-func (file *WasmGoSourceFile) parseAstTypeSpec(spec *ast.TypeSpec, fset *token.FileSet) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstTypeSpec(spec *ast.TypeSpec) (WasmType, error) {
 	name := spec.Name.Name
 	if t, ok := file.module.types[name]; ok {
 		return t, nil
 	}
 	switch astType := spec.Type.(type) {
 	default:
-		return nil, fmt.Errorf("unsupported type declaration: %v", astType)
+		return nil, file.ErrorNode(spec, "unsupported type declaration: %v", astType)
+	case *ast.FuncType:
+		return nil, file.ErrorNode(spec, "function types are not unsupported: %v", astType)
 	case *ast.StructType:
 		st := &WasmTypeStruct{}
 		st.setName(name)
 		st.setAlign(8)
 		// Insert incomplete the type declaration now to handle recursive types.
 		file.module.types[name] = st
-		return file.parseAstStructType(st, astType, fset)
+		return file.parseAstStructType(st, astType)
 	}
 }
 
-func (file *WasmGoSourceFile) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType, fset *token.FileSet) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType) (WasmType, error) {
 	if astType.Fields == nil || astType.Fields.List == nil {
 		return nil, fmt.Errorf("struct types with no fields are not supported (struct %s)", t.getName())
 	}
