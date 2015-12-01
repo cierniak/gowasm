@@ -7,6 +7,7 @@ import (
 
 type WasmType interface {
 	getName() string
+	setName(name string)
 	getSize() int
 	getAlign() int
 	isSigned() bool
@@ -41,6 +42,11 @@ type WasmTypeStruct struct {
 	fields []*WasmField
 }
 
+type WasmTypeFunc struct {
+	WasmTypeBase
+	result WasmType
+}
+
 func (t *WasmTypeBase) getName() string {
 	return t.name
 }
@@ -71,6 +77,14 @@ func (t *WasmTypeScalar) isSigned() bool {
 
 func (t *WasmTypeScalar) print(writer FormattingWriter) {
 	writer.Printf("%s", t.name)
+}
+
+func (t *WasmTypeFunc) isSigned() bool {
+	return false
+}
+
+func (t *WasmTypeFunc) print(writer FormattingWriter) {
+	writer.Printf("function %s", t.name)
 }
 
 func (t *WasmTypePointer) isSigned() bool {
@@ -179,7 +193,13 @@ func (file *WasmGoSourceFile) parseAstTypeSpec(spec *ast.TypeSpec) (WasmType, er
 	default:
 		return nil, file.ErrorNode(spec, "unsupported type declaration: %v", astType)
 	case *ast.FuncType:
-		return nil, file.ErrorNode(spec, "function types are not unsupported: %v", astType)
+		ty, err := file.parseAstFuncType(astType)
+		if err != nil {
+			return nil, err
+		}
+		ty.setName(name)
+		file.module.types[name] = ty
+		return ty, nil
 	case *ast.StructType:
 		st := &WasmTypeStruct{}
 		st.setName(name)
@@ -188,6 +208,28 @@ func (file *WasmGoSourceFile) parseAstTypeSpec(spec *ast.TypeSpec) (WasmType, er
 		file.module.types[name] = st
 		return file.parseAstStructType(st, astType)
 	}
+}
+
+func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType, error) {
+	t := &WasmTypeFunc{}
+	t.setAlign(4)
+	t.setSize(4)
+	numParams := len(astType.Params.List)
+	if numParams > 0 {
+		return nil, file.ErrorNode(astType, "function types with parameters are not supported")
+	}
+	if astType.Results != nil && astType.Results.List != nil && len(astType.Results.List) > 0 {
+		list := astType.Results.List
+		if len(list) > 1 {
+			return nil, file.ErrorNode(astType, "function types with %d return values are not supported", len(list))
+		}
+		var err error
+		t.result, err = file.parseAstType(list[0].Type)
+		if err != nil {
+			return nil, fmt.Errorf("error in function type return: %v", err)
+		}
+	}
+	return t, nil
 }
 
 func (file *WasmGoSourceFile) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType) (WasmType, error) {
