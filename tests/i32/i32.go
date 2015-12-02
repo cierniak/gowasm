@@ -30,6 +30,13 @@ func Expr2(a, b, c int32) int32 {
 	return Add(a, b/c)
 }
 
+//wasm:invoke (invoke "SimpleLoopTest" (i32.const 55) (i32.const 100))
+func SimpleLoopTest(start, end int32) {
+	for i := start; i < end; i = i + 20 {
+		wasm.Print_int32(i)
+	}
+}
+
 //wasm:assert_return (invoke "NestedLoop" (i32.const 5) (i32.const 7)) (i32.const 35)
 func NestedLoop(a, b int32) int32 {
 	var sum int32

@@ -210,28 +210,6 @@ func (file *WasmGoSourceFile) parseAstTypeSpec(spec *ast.TypeSpec) (WasmType, er
 	}
 }
 
-func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType, error) {
-	t := &WasmTypeFunc{}
-	t.setAlign(4)
-	t.setSize(4)
-	numParams := len(astType.Params.List)
-	if numParams > 0 {
-		return nil, file.ErrorNode(astType, "function types with parameters are not supported")
-	}
-	if astType.Results != nil && astType.Results.List != nil && len(astType.Results.List) > 0 {
-		list := astType.Results.List
-		if len(list) > 1 {
-			return nil, file.ErrorNode(astType, "function types with %d return values are not supported", len(list))
-		}
-		var err error
-		t.result, err = file.parseAstType(list[0].Type)
-		if err != nil {
-			return nil, fmt.Errorf("error in function type return: %v", err)
-		}
-	}
-	return t, nil
-}
-
 func (file *WasmGoSourceFile) parseAstStructType(t *WasmTypeStruct, astType *ast.StructType) (WasmType, error) {
 	if astType.Fields == nil || astType.Fields.List == nil {
 		return nil, fmt.Errorf("struct types with no fields are not supported (struct %s)", t.getName())

@@ -19,6 +19,7 @@ type WasmFunc struct {
 	name      string
 	origName  string
 	namePos   token.Pos
+	signature WasmType
 	params    []*WasmParam
 	result    *WasmResult
 	locals    []*WasmLocal
@@ -86,7 +87,34 @@ func (f *WasmFunc) parseAstFuncDecl() (*WasmFunc, error) {
 	return f, err
 }
 
+func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType, error) {
+	t := &WasmTypeFunc{}
+	t.setAlign(4)
+	t.setSize(4)
+	numParams := len(astType.Params.List)
+	if numParams > 0 {
+		return nil, file.ErrorNode(astType, "function types with parameters are not supported")
+	}
+	if astType.Results != nil && astType.Results.List != nil && len(astType.Results.List) > 0 {
+		list := astType.Results.List
+		if len(list) > 1 {
+			return nil, file.ErrorNode(astType, "function types with %d return values are not supported", len(list))
+		}
+		var err error
+		t.result, err = file.parseAstType(list[0].Type)
+		if err != nil {
+			return nil, fmt.Errorf("error in function type return: %v", err)
+		}
+	}
+	return t, nil
+}
+
 func (f *WasmFunc) parseType(t *ast.FuncType) error {
+	sig, err := f.file.parseAstFuncType(t)
+	if err != nil {
+		fmt.Printf("WARNING: Couldn't parse function signature: %v\n", err)
+	}
+	f.signature = sig
 	if t.Params.List != nil {
 		for _, field := range t.Params.List {
 			paramType, err := f.file.parseAstType(field.Type)

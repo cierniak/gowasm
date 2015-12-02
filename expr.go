@@ -101,13 +101,29 @@ type WasmValue struct {
 	t     WasmType
 }
 
-// ( call <var> <expr>* )
-type WasmCall struct {
+type WasmFuncPtr struct {
 	WasmExprBase
-	name string
+	def *WasmFunc
+}
+
+type WasmCallBase struct {
+	WasmExprBase
 	args []WasmExpression
 	call *ast.CallExpr
+}
+
+// ( call <var> <expr>* )
+type WasmCall struct {
+	WasmCallBase
+	name string
 	def  *WasmFunc
+}
+
+// ( call_indirect <var> <expr> <expr>* )
+type WasmCallIndirect struct {
+	WasmCallBase
+	name      string
+	signature WasmType
 }
 
 // ( get_local <var> )
@@ -331,10 +347,10 @@ func (s *WasmScope) parseConvertExpr(ty WasmType, v ast.Expr, indent int) (WasmE
 func (s *WasmScope) createCallExprWithArgs(call *ast.CallExpr, name string, fn *WasmFunc, args []WasmExpression, indent int) (WasmExpression, error) {
 	c := &WasmCall{
 		name: name,
-		args: args,
-		call: call,
 		def:  fn,
 	}
+	c.args = args
+	c.call = call
 	c.setIndent(indent)
 	c.setNode(call)
 	c.setScope(s)
@@ -350,6 +366,18 @@ func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc
 		return nil, fmt.Errorf("error parsing args to function %s: %v", name, err)
 	}
 	return s.createCallExprWithArgs(call, name, fn, args, indent)
+}
+
+func (s *WasmScope) createIndirectCallExpr(call *ast.CallExpr, name string, v WasmVariable, indent int) (WasmExpression, error) {
+	fmt.Printf("createIndirectCallExpr, name: %s, v: %v\n", name, v)
+	c := &WasmCallIndirect{
+		name: name,
+	}
+	c.call = call
+	c.setIndent(indent)
+	c.setNode(call)
+	c.setScope(s)
+	return c, nil
 }
 
 func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpression, error) {
@@ -375,8 +403,11 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 		if ok {
 			return s.createCallExpr(call, name, s.f.module.functionMap[decl], indent)
 		} else {
-			return nil, fmt.Errorf("function %s undefined (forward reference?)", name)
-
+			v, ok := s.f.module.variables[fun.Obj]
+			if !ok {
+				return nil, fmt.Errorf("function %s undefined (forward reference?)", name)
+			}
+			return s.createIndirectCallExpr(call, name, v, indent)
 		}
 	case *ast.ParenExpr:
 		typ, err := s.f.file.parseAstType(fun.X)
@@ -444,7 +475,12 @@ func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (Was
 
 func (s *WasmScope) parseFuncIdent(ident *ast.Ident, fn *WasmFunc, indent int) (WasmExpression, error) {
 	fmt.Printf("parseFuncIdent, fn: %v\n", fn)
-	return nil, s.f.file.ErrorNode(ident, "unimplemented function identifier '%s'", ident.Name)
+	fptr := &WasmFuncPtr{
+		def: fn,
+	}
+	fptr.setNode(ident)
+	fptr.setScope(s)
+	return fptr, nil
 }
 
 func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
@@ -734,6 +770,14 @@ func (g *WasmGetLocal) getType() WasmType {
 	return g.f.module.variables[g.astIdent.Obj].getType()
 }
 
+func (f *WasmFuncPtr) getType() WasmType {
+	return f.def.signature
+}
+
+func (f *WasmFuncPtr) print(writer FormattingWriter) {
+	writer.PrintfIndent(f.getIndent(), "(function pointer %s)%s\n", f.def.name, f.getComment())
+}
+
 func (c *WasmCall) getType() WasmType {
 	if c.def != nil {
 		return c.def.result.t
@@ -747,6 +791,18 @@ func (c *WasmCall) print(writer FormattingWriter) {
 		arg.print(writer)
 	}
 	writer.PrintfIndent(c.getIndent(), ") ;; call %s\n", c.name)
+}
+
+func (c *WasmCallIndirect) getType() WasmType {
+	return c.signature
+}
+
+func (c *WasmCallIndirect) print(writer FormattingWriter) {
+	writer.PrintfIndent(c.getIndent(), "(call_indirect %s%s\n", c.name, c.getComment())
+	for _, arg := range c.args {
+		arg.print(writer)
+	}
+	writer.PrintfIndent(c.getIndent(), ") ;; call_indirect %s\n", c.name)
 }
 
 func (c *WasmCall) getNode() ast.Node {
