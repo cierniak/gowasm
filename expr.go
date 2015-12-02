@@ -442,10 +442,19 @@ func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (Was
 	return l, nil
 }
 
+func (s *WasmScope) parseFuncIdent(ident *ast.Ident, fn *WasmFunc, indent int) (WasmExpression, error) {
+	fmt.Printf("parseFuncIdent, fn: %v\n", fn)
+	return nil, s.f.file.ErrorNode(ident, "unimplemented function identifier '%s'", ident.Name)
+}
+
 func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
 	v, ok := s.f.module.variables[ident.Obj]
 	if !ok {
-		return nil, fmt.Errorf("undefined identifier '%s' at %s", ident.Name, positionString(ident.NamePos, s.f.fset))
+		fn, ok := s.f.module.functionMap2[ident.Obj]
+		if !ok {
+			return nil, s.f.file.ErrorNode(ident, "undefined identifier '%s'", ident.Name)
+		}
+		return s.parseFuncIdent(ident, fn, indent)
 	}
 	switch v := v.(type) {
 	default:
