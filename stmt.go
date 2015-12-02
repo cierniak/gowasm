@@ -48,16 +48,19 @@ type WasmIf struct {
 // ( loop <var> <var>? <expr>* ) ;; = (label <var> (loop (block <var>? <expr>*)))
 type WasmLoop struct {
 	WasmExprBase
-	scope *WasmScope
-	cond  WasmExpression
-	body  *WasmBlock
-	stmt  *ast.ForStmt
+	scope         *WasmScope
+	labelBreak    string
+	labelContinue string
+	cond          WasmExpression
+	body          *WasmBlock
+	stmt          *ast.ForStmt
 }
 
 // ( break <var> <expr>? )
 type WasmBreak struct {
 	WasmExprBase
 	scope *WasmScope
+	label string
 	v     int
 }
 
@@ -292,8 +295,11 @@ func (s *WasmScope) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression,
 		return nil, fmt.Errorf("error in the condition of a loop: %v", err)
 	}
 	scope := s.f.createScope("loop")
+	labelBreak := scope.name + "_break"
+	labelContinue := scope.name + "_continue"
 	b := &WasmBreak{
 		scope: scope,
+		label: labelBreak,
 	}
 	b.setIndent(indent + 3)
 	ifStmt, err := s.createIf(cond, s.createNop(indent+3), b, indent+2)
@@ -315,9 +321,18 @@ func (s *WasmScope) parseForStmt(stmt *ast.ForStmt, indent int) (WasmExpression,
 		}
 	}
 
-	l := &WasmLoop{
-		stmt:  stmt,
+	cont := &WasmBreak{
 		scope: scope,
+		label: labelContinue,
+	}
+	cont.setIndent(indent + 2)
+	scope.expressions = append(scope.expressions, cont)
+
+	l := &WasmLoop{
+		stmt:          stmt,
+		scope:         scope,
+		labelBreak:    labelBreak,
+		labelContinue: labelContinue,
 	}
 	l.setIndent(indent + 1)
 
@@ -522,7 +537,7 @@ func (l *WasmLoop) getType() WasmType {
 }
 
 func (l *WasmLoop) print(writer FormattingWriter) {
-	writer.PrintfIndent(l.getIndent(), "(loop $%s\n", l.scope.name)
+	writer.PrintfIndent(l.getIndent(), "(loop $%s $%s\n", l.labelBreak, l.labelContinue)
 	for _, e := range l.scope.expressions {
 		e.print(writer)
 	}
@@ -542,7 +557,7 @@ func (b *WasmBreak) getType() WasmType {
 }
 
 func (b *WasmBreak) print(writer FormattingWriter) {
-	writer.PrintfIndent(b.getIndent(), "(br $%s)\n", b.scope.name)
+	writer.PrintfIndent(b.getIndent(), "(br $%s)\n", b.label)
 }
 
 func (b *WasmBreak) getNode() ast.Node {
