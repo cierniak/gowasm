@@ -57,8 +57,8 @@ func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, i
 	if !ok {
 		i = &WasmImport{
 			name:       astNameToWASM(name, nil),
-			moduleName: "stdio", // TODO(cierniak): support other WASM modules
-			funcName:   "print", // TODO(cierniak): support other functions
+			moduleName: "spectest", // TODO(cierniak): support other WASM modules
+			funcName:   "print",    // TODO(cierniak): support other functions
 			params:     params,
 			indent:     s.f.module.indent + 1,
 		}

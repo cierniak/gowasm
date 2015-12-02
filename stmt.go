@@ -496,7 +496,11 @@ func (i *WasmIf) getType() WasmType {
 }
 
 func (i *WasmIf) print(writer FormattingWriter) {
-	writer.PrintfIndent(i.getIndent(), "(if\n")
+	if i.bodyElse != nil {
+		writer.PrintfIndent(i.getIndent(), "(if_else\n")
+	} else {
+		writer.PrintfIndent(i.getIndent(), "(if\n")
+	}
 	i.cond.print(writer)
 	i.body.print(writer)
 	if i.bodyElse != nil {
@@ -538,7 +542,7 @@ func (b *WasmBreak) getType() WasmType {
 }
 
 func (b *WasmBreak) print(writer FormattingWriter) {
-	writer.PrintfIndent(b.getIndent(), "(break $%s)\n", b.scope.name)
+	writer.PrintfIndent(b.getIndent(), "(br $%s)\n", b.scope.name)
 }
 
 func (b *WasmBreak) getNode() ast.Node {
