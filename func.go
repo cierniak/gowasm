@@ -19,7 +19,7 @@ type WasmFunc struct {
 	name      string
 	origName  string
 	namePos   token.Pos
-	signature WasmType
+	signature *WasmTypeFunc
 	tabIndex  int
 	params    []*WasmParam
 	result    *WasmResult
@@ -88,7 +88,7 @@ func (f *WasmFunc) parseAstFuncDecl() (*WasmFunc, error) {
 	return f, err
 }
 
-func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType, error) {
+func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (*WasmTypeFunc, error) {
 	t := &WasmTypeFunc{
 		indent: 1,
 	}
@@ -109,8 +109,7 @@ func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType,
 			return nil, fmt.Errorf("error in function type return: %v", err)
 		}
 	}
-	file.module.signatures.add(t)
-	return t, nil
+	return file.module.signatures.add(t), nil
 }
 
 func (f *WasmFunc) prepareForIndirectCall() {
@@ -162,6 +161,9 @@ func (f *WasmFunc) parseType(t *ast.FuncType) error {
 func (f *WasmFunc) print(writer FormattingWriter) {
 	writer.PrintfIndent(f.indent, ";; Go function '%s' %s\n", f.origName, positionString(f.namePos, f.fset))
 	writer.PrintfIndent(f.indent, "(func %s", f.name)
+	if f.signature != nil {
+		writer.Printf(" (type %s)", f.signature.wasmName)
+	}
 	for _, param := range f.params {
 		param.print(writer)
 	}

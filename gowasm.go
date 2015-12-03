@@ -377,11 +377,25 @@ func (tab *WasmSignatureTable) print(writer FormattingWriter) {
 	}
 }
 
-func (tab *WasmSignatureTable) add(ty *WasmTypeFunc) {
+func (tab *WasmSignatureTable) equivalent(a, b *WasmTypeFunc) bool {
+	if a.result != b.result {
+		return false
+	}
+	// TODO: compare param types
+	return true
+}
+
+func (tab *WasmSignatureTable) add(ty *WasmTypeFunc) *WasmTypeFunc {
 	name, ok := tab.signatures[ty]
 	if !ok {
+		for t, _ := range tab.signatures {
+			if tab.equivalent(ty, t) {
+				return t
+			}
+		}
 		name = fmt.Sprintf("$F%d", len(tab.signatures))
 		ty.wasmName = name
 		tab.signatures[ty] = name
 	}
+	return ty
 }
