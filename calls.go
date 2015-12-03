@@ -68,11 +68,10 @@ func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc
 	return s.createCallExprWithArgs(call, name, fn, args, indent)
 }
 
-func (s *WasmScope) createIndirectCallExpr(call *ast.CallExpr, name string, v WasmVariable, indent int) (WasmExpression, error) {
-	fmt.Printf("createIndirectCallExpr, name: %s, v: %v\n", name, v)
-	idx, err := s.createLiteralInt32(int32(55), indent+1)
+func (s *WasmScope) createIndirectCallExpr(call *ast.CallExpr, name string, ident *ast.Ident, indent int) (WasmExpression, error) {
+	idx, err := s.parseIdent(ident, indent+1)
 	if err != nil {
-		return nil, fmt.Errorf("call_indirect, couldn't create int32 literal for the table index")
+		return nil, fmt.Errorf("call_indirect, couldn't create expression for the table index")
 	}
 	c := &WasmCallIndirect{
 		name:  name,
@@ -108,11 +107,11 @@ func (s *WasmScope) parseCallExpr(call *ast.CallExpr, indent int) (WasmExpressio
 		if ok {
 			return s.createCallExpr(call, name, s.f.module.functionMap[decl], indent)
 		} else {
-			v, ok := s.f.module.variables[fun.Obj]
+			_, ok := s.f.module.variables[fun.Obj]
 			if !ok {
 				return nil, fmt.Errorf("function %s undefined (forward reference?)", name)
 			}
-			return s.createIndirectCallExpr(call, name, v, indent)
+			return s.createIndirectCallExpr(call, name, fun, indent)
 		}
 	case *ast.ParenExpr:
 		typ, err := s.f.file.parseAstType(fun.X)

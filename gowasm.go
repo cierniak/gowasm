@@ -334,6 +334,7 @@ func (file *WasmGoSourceFile) ErrorNode(node ast.Node, format string, a ...inter
 func (tab *WasmFunctionTable) print(writer FormattingWriter) {
 	length := len(tab.funcIndex)
 	if length > 0 {
+		writer.Printf("\n")
 		writer.PrintfIndent(1, "(table\n")
 		sorted := make([]*WasmFunc, length, length)
 		for fn, i := range tab.funcIndex {
