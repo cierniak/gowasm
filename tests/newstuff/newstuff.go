@@ -8,7 +8,7 @@ func Twelve() int {
 	return 12
 }
 
-//wasm:assert_return (invoke "Test1") (i32.const 14)
+//wasm:assert_return (invoke "Test1") (i32.const 12)
 func Test1() int {
 	var f IntFunc
 	f = Twelve

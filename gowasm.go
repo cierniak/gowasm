@@ -43,6 +43,7 @@ type WasmModule struct {
 	functionMap2 map[*ast.Object]*WasmFunc
 	funcSymTab   map[string]*WasmFunc
 	funcPtrTable *WasmFunctionTable
+	signatures   *WasmSignatureTable
 	types        map[string]WasmType
 	variables    map[*ast.Object]WasmVariable
 	imports      map[string]*WasmImport
@@ -50,6 +51,11 @@ type WasmModule struct {
 	invoke       []string
 	memory       *WasmMemory
 	freePtrAddr  int32
+}
+
+// For function types
+type WasmSignatureTable struct {
+	signatures map[*WasmTypeFunc]string
 }
 
 // For indirect calls
@@ -66,6 +72,9 @@ type WasmGoSourceFile struct {
 }
 
 func NewWasmModuleLinker() WasmModuleLinker {
+	sigTable := &WasmSignatureTable{
+		signatures: make(map[*WasmTypeFunc]string),
+	}
 	fnPtrTable := &WasmFunctionTable{
 		funcIndex: make(map[*WasmFunc]int),
 	}
@@ -77,6 +86,7 @@ func NewWasmModuleLinker() WasmModuleLinker {
 		functionMap2: make(map[*ast.Object]*WasmFunc),
 		funcSymTab:   make(map[string]*WasmFunc),
 		funcPtrTable: fnPtrTable,
+		signatures:   sigTable,
 		types:        make(map[string]WasmType),
 		variables:    make(map[*ast.Object]WasmVariable),
 		imports:      make(map[string]*WasmImport),
@@ -213,6 +223,7 @@ func (m *WasmModule) printGlobalVars(writer FormattingWriter) {
 		switch v := v.(type) {
 		case *WasmGlobalVar:
 			if !headerPrinted {
+				writer.Printf("\n")
 				writer.PrintfIndent(1, ";; Global variables\n")
 				headerPrinted = true
 			}
@@ -253,6 +264,7 @@ func (m *WasmModule) print(writer FormattingWriter) {
 		f.print(writer)
 	}
 	m.memory.print(writer)
+	m.signatures.print(writer)
 	m.funcPtrTable.print(writer)
 	m.printGlobalVars(writer)
 	m.printImports(writer)
@@ -354,4 +366,22 @@ func (tab *WasmFunctionTable) add(fn *WasmFunc) int {
 		tab.funcIndex[fn] = idx
 	}
 	return idx
+}
+
+func (tab *WasmSignatureTable) print(writer FormattingWriter) {
+	if len(tab.signatures) > 0 {
+		writer.Printf("\n")
+	}
+	for sig := range tab.signatures {
+		sig.printType(writer)
+	}
+}
+
+func (tab *WasmSignatureTable) add(ty *WasmTypeFunc) {
+	name, ok := tab.signatures[ty]
+	if !ok {
+		name = fmt.Sprintf("$F%d", len(tab.signatures))
+		ty.wasmName = name
+		tab.signatures[ty] = name
+	}
 }

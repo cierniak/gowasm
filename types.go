@@ -44,7 +44,9 @@ type WasmTypeStruct struct {
 
 type WasmTypeFunc struct {
 	WasmTypeBase
-	result WasmType
+	wasmName string
+	result   WasmType
+	indent   int
 }
 
 func (t *WasmTypeBase) getName() string {
@@ -83,8 +85,22 @@ func (t *WasmTypeFunc) isSigned() bool {
 	return false
 }
 
+func (t *WasmTypeFunc) printType(writer FormattingWriter) {
+	writer.PrintfIndent(t.indent, "(type %s (func (param)", t.wasmName)
+	if t.result != nil {
+		writer.Printf(" (result ")
+		t.result.print(writer)
+		writer.Printf(")")
+	}
+	writer.Printf("))")
+	if t.name != "" {
+		writer.Printf(" ;; %s", t.name)
+	}
+	writer.Printf("\n")
+}
+
 func (t *WasmTypeFunc) print(writer FormattingWriter) {
-	writer.Printf("function %s", t.name)
+	writer.Printf("i32")
 }
 
 func (t *WasmTypePointer) isSigned() bool {

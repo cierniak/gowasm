@@ -89,7 +89,9 @@ func (f *WasmFunc) parseAstFuncDecl() (*WasmFunc, error) {
 }
 
 func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType, error) {
-	t := &WasmTypeFunc{}
+	t := &WasmTypeFunc{
+		indent: 1,
+	}
 	t.setAlign(4)
 	t.setSize(4)
 	numParams := len(astType.Params.List)
@@ -107,6 +109,7 @@ func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType,
 			return nil, fmt.Errorf("error in function type return: %v", err)
 		}
 	}
+	file.module.signatures.add(t)
 	return t, nil
 }
 

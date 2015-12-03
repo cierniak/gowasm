@@ -28,7 +28,7 @@ type WasmCall struct {
 type WasmCallIndirect struct {
 	WasmCallBase
 	name      string
-	signature WasmType
+	signature *WasmTypeFunc
 	index     WasmExpression
 }
 
@@ -81,6 +81,13 @@ func (s *WasmScope) createIndirectCallExpr(call *ast.CallExpr, name string, iden
 	c.setIndent(indent)
 	c.setNode(call)
 	c.setScope(s)
+	switch ty := idx.getType().(type) {
+	default:
+		return nil, s.f.file.ErrorNode(call, "unimplemented expression type: %v", ty)
+	case *WasmTypeFunc:
+		fmt.Printf("createIndirectCallExpr, name: %s\n", ty.wasmName)
+		c.signature = ty
+	}
 	return c, nil
 }
 
@@ -214,7 +221,7 @@ func (c *WasmCallIndirect) getType() WasmType {
 }
 
 func (c *WasmCallIndirect) print(writer FormattingWriter) {
-	writer.PrintfIndent(c.getIndent(), "(call_indirect $TYPE %s\n", c.getComment())
+	writer.PrintfIndent(c.getIndent(), "(call_indirect %s%s\n", c.signature.wasmName, c.getComment())
 	c.index.print(writer)
 	for _, arg := range c.args {
 		arg.print(writer)
