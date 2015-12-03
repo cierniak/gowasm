@@ -20,6 +20,7 @@ type WasmFunc struct {
 	origName  string
 	namePos   token.Pos
 	signature WasmType
+	tabIndex  int
 	params    []*WasmParam
 	result    *WasmResult
 	locals    []*WasmLocal
@@ -107,6 +108,10 @@ func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (WasmType,
 		}
 	}
 	return t, nil
+}
+
+func (f *WasmFunc) prepareForIndirectCall() {
+	f.tabIndex = f.file.module.funcPtrTable.add(f)
 }
 
 func (f *WasmFunc) parseType(t *ast.FuncType) error {

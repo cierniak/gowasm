@@ -104,6 +104,7 @@ type WasmValue struct {
 type WasmFuncPtr struct {
 	WasmExprBase
 	def *WasmFunc
+	idx WasmExpression
 }
 
 type WasmCallBase struct {
@@ -124,6 +125,7 @@ type WasmCallIndirect struct {
 	WasmCallBase
 	name      string
 	signature WasmType
+	index     WasmExpression
 }
 
 // ( get_local <var> )
@@ -253,6 +255,21 @@ func (s *WasmScope) createLiteralInt32(value int32, indent int) (WasmExpression,
 	return s.createLiteral(fmt.Sprintf("%d", value), t, indent)
 }
 
+func (s *WasmScope) createNilLiteral(t WasmType, indent int) (WasmExpression, error) {
+	switch ty := t.(type) {
+	default:
+		return s.createLiteral("0", ty, indent)
+	case *WasmTypeFunc:
+		zero, err := s.createLiteralInt32(-1, indent)
+		if err != nil {
+			return nil, err
+		}
+		zero.setComment("nil function pointer")
+		zero.setScope(s)
+		return zero, nil
+	}
+}
+
 func (s *WasmScope) createLiteral(value string, ty WasmType, indent int) (WasmExpression, error) {
 	if ty == nil {
 		return nil, fmt.Errorf("not implemented: literal without type: %v", value)
@@ -370,8 +387,13 @@ func (s *WasmScope) createCallExpr(call *ast.CallExpr, name string, fn *WasmFunc
 
 func (s *WasmScope) createIndirectCallExpr(call *ast.CallExpr, name string, v WasmVariable, indent int) (WasmExpression, error) {
 	fmt.Printf("createIndirectCallExpr, name: %s, v: %v\n", name, v)
+	idx, err := s.createLiteralInt32(int32(55), indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("call_indirect, couldn't create int32 literal for the table index")
+	}
 	c := &WasmCallIndirect{
-		name: name,
+		name:  name,
+		index: idx,
 	}
 	c.call = call
 	c.setIndent(indent)
@@ -474,12 +496,20 @@ func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (Was
 }
 
 func (s *WasmScope) parseFuncIdent(ident *ast.Ident, fn *WasmFunc, indent int) (WasmExpression, error) {
-	fmt.Printf("parseFuncIdent, fn: %v\n", fn)
+	idx, err := s.createLiteralInt32(int32(fn.tabIndex), indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error creating table index: %v", err)
+	}
+	idx.setComment(fmt.Sprintf("function index for %s", fn.name))
+	idx.setNode(ident)
+	idx.setScope(s)
 	fptr := &WasmFuncPtr{
 		def: fn,
+		idx: idx,
 	}
 	fptr.setNode(ident)
 	fptr.setScope(s)
+	fn.prepareForIndirectCall()
 	return fptr, nil
 }
 
@@ -693,7 +723,7 @@ func (s *WasmScope) parseUnaryExpr(expr *ast.UnaryExpr, indent int) (WasmExpress
 func (v *WasmValue) print(writer FormattingWriter) {
 	writer.PrintfIndent(v.getIndent(), "(")
 	v.t.print(writer)
-	writer.Printf(".const %s)\n", v.value)
+	writer.Printf(".const %s)%s\n", v.value, v.getComment())
 }
 
 func (v *WasmValue) getType() WasmType {
@@ -775,7 +805,7 @@ func (f *WasmFuncPtr) getType() WasmType {
 }
 
 func (f *WasmFuncPtr) print(writer FormattingWriter) {
-	writer.PrintfIndent(f.getIndent(), "(function pointer %s)%s\n", f.def.name, f.getComment())
+	f.idx.print(writer)
 }
 
 func (c *WasmCall) getType() WasmType {
@@ -798,7 +828,8 @@ func (c *WasmCallIndirect) getType() WasmType {
 }
 
 func (c *WasmCallIndirect) print(writer FormattingWriter) {
-	writer.PrintfIndent(c.getIndent(), "(call_indirect %s%s\n", c.name, c.getComment())
+	writer.PrintfIndent(c.getIndent(), "(call_indirect $TYPE %s\n", c.getComment())
+	c.index.print(writer)
 	for _, arg := range c.args {
 		arg.print(writer)
 	}

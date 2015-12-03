@@ -42,6 +42,7 @@ type WasmModule struct {
 	functionMap  map[*ast.FuncDecl]*WasmFunc
 	functionMap2 map[*ast.Object]*WasmFunc
 	funcSymTab   map[string]*WasmFunc
+	funcPtrTable *WasmFunctionTable
 	types        map[string]WasmType
 	variables    map[*ast.Object]WasmVariable
 	imports      map[string]*WasmImport
@@ -49,6 +50,11 @@ type WasmModule struct {
 	invoke       []string
 	memory       *WasmMemory
 	freePtrAddr  int32
+}
+
+// For indirect calls
+type WasmFunctionTable struct {
+	funcIndex map[*WasmFunc]int
 }
 
 type WasmGoSourceFile struct {
@@ -60,6 +66,9 @@ type WasmGoSourceFile struct {
 }
 
 func NewWasmModuleLinker() WasmModuleLinker {
+	fnPtrTable := &WasmFunctionTable{
+		funcIndex: make(map[*WasmFunc]int),
+	}
 	m := &WasmModule{
 		indent:       0,
 		files:        make([]*WasmGoSourceFile, 0, 10),
@@ -67,6 +76,7 @@ func NewWasmModuleLinker() WasmModuleLinker {
 		functionMap:  make(map[*ast.FuncDecl]*WasmFunc),
 		functionMap2: make(map[*ast.Object]*WasmFunc),
 		funcSymTab:   make(map[string]*WasmFunc),
+		funcPtrTable: fnPtrTable,
 		types:        make(map[string]WasmType),
 		variables:    make(map[*ast.Object]WasmVariable),
 		imports:      make(map[string]*WasmImport),
@@ -243,6 +253,7 @@ func (m *WasmModule) print(writer FormattingWriter) {
 		f.print(writer)
 	}
 	m.memory.print(writer)
+	m.funcPtrTable.print(writer)
 	m.printGlobalVars(writer)
 	m.printImports(writer)
 	for _, f := range m.functions {
@@ -318,4 +329,28 @@ func (file *WasmGoSourceFile) ErrorNode(node ast.Node, format string, a ...inter
 		msg: fmt.Sprintf("%s @ %v", s, position),
 	}
 	return e
+}
+
+func (tab *WasmFunctionTable) print(writer FormattingWriter) {
+	length := len(tab.funcIndex)
+	if length > 0 {
+		writer.PrintfIndent(1, "(table\n")
+		sorted := make([]*WasmFunc, length, length)
+		for fn, i := range tab.funcIndex {
+			sorted[i] = fn
+		}
+		for _, fn := range sorted {
+			writer.PrintfIndent(2, "%s\n", fn.name)
+		}
+		writer.PrintfIndent(1, ") ;;table\n")
+	}
+}
+
+func (tab *WasmFunctionTable) add(fn *WasmFunc) int {
+	idx, ok := tab.funcIndex[fn]
+	if !ok {
+		idx = len(tab.funcIndex)
+		tab.funcIndex[fn] = idx
+	}
+	return idx
 }

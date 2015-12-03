@@ -262,11 +262,17 @@ func (s *WasmScope) parseDeclStmt(stmt *ast.DeclStmt, indent int) (WasmExpressio
 			if err != nil {
 				return nil, err
 			}
-			zero, err := s.createLiteral("0", v.getType(), indent+2)
+			zero, err := s.createNilLiteral(v.getType(), indent+2)
 			if err != nil {
 				return nil, err
 			}
-			return s.createSetVar(v, zero, stmt, indent)
+			expr, err := s.createSetVar(v, zero, stmt, indent)
+			if err != nil {
+				return nil, err
+			}
+			expr.setNode(stmt)
+			expr.setScope(s)
+			return expr, nil
 		}
 	}
 }
@@ -565,7 +571,7 @@ func (b *WasmBreak) getNode() ast.Node {
 }
 
 func (s *WasmSetLocal) print(writer FormattingWriter) {
-	writer.PrintfIndent(s.getIndent(), "(set_local %s\n", s.lhs.getName())
+	writer.PrintfIndent(s.getIndent(), "(set_local %s%s\n", s.lhs.getName(), s.getComment())
 	s.rhs.print(writer)
 	writer.PrintfIndent(s.getIndent(), ") ;; set_local %s\n", s.lhs.getName())
 }
