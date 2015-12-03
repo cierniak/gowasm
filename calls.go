@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
 )
 
 type WasmFuncPtr struct {
@@ -225,9 +224,5 @@ func (c *WasmCallIndirect) print(writer FormattingWriter) {
 }
 
 func (c *WasmCall) getNode() ast.Node {
-	if c.call == nil {
-		return nil
-	} else {
-		return c.call
-	}
+	return c.call
 }
