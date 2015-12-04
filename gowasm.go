@@ -264,9 +264,9 @@ func (m *WasmModule) print(writer FormattingWriter) {
 		f.print(writer)
 	}
 	m.memory.print(writer)
+	m.printGlobalVars(writer)
 	m.signatures.print(writer)
 	m.funcPtrTable.print(writer)
-	m.printGlobalVars(writer)
 	m.printImports(writer)
 	for _, f := range m.functions {
 		writer.Printf("\n")
