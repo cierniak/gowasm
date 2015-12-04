@@ -20,7 +20,7 @@ func Test1() int {
 	return f()
 }
 
-//wasm:assert_return (invoke "Test1") (i32.const 12)
+//wasm:assert_return (invoke "Test2") (i32.const 17)
 func Test2() int {
 	var f1 IntFunc2
 	f1 = Sum

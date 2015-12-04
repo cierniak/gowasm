@@ -73,10 +73,15 @@ func (s *WasmScope) createIndirectCallExpr(call *ast.CallExpr, name string, iden
 	if err != nil {
 		return nil, fmt.Errorf("call_indirect, couldn't create expression for the table index")
 	}
+	args, err := s.parseArgs(call.Args, indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing args to function %s: %v", name, err)
+	}
 	c := &WasmCallIndirect{
 		name:  name,
 		index: idx,
 	}
+	c.args = args
 	c.call = call
 	c.setIndent(indent)
 	c.setNode(call)
