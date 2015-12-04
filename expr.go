@@ -615,5 +615,6 @@ func (g *WasmGetLocal) print(writer FormattingWriter) {
 }
 
 func (g *WasmGetLocal) getType() WasmType {
-	return g.f.module.variables[g.astIdent.Obj].getType()
+	//return g.f.module.variables[g.astIdent.Obj].getType()
+	return g.def.getType()
 }

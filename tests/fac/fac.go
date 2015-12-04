@@ -18,3 +18,10 @@ func PrintAll(n int64) {
 		wasm.Print_int64(f)
 	}
 }
+
+//wasm:invoke (invoke "SimpleLoopTest" (i32.const 55) (i32.const 100))
+func SimpleLoopTest(start, end int32) {
+	for i := start; i < end; i = i + 20 {
+		wasm.Print_int32(i)
+	}
+}

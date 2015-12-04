@@ -96,7 +96,20 @@ func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (*WasmType
 	t.setSize(4)
 	numParams := len(astType.Params.List)
 	if numParams > 0 {
-		return nil, file.ErrorNode(astType, "function types with parameters are not supported")
+		t.params = make([]WasmType, 0, numParams)
+		for _, param := range astType.Params.List {
+			ty, err := file.parseAstType(param.Type)
+			if err != nil {
+				return nil, fmt.Errorf("error in function param type : %v", err)
+			}
+			if param.Names == nil {
+				t.params = append(t.params, ty)
+			} else {
+				for i := 0; i < len(param.Names); i++ {
+					t.params = append(t.params, ty)
+				}
+			}
+		}
 	}
 	if astType.Results != nil && astType.Results.List != nil && len(astType.Results.List) > 0 {
 		list := astType.Results.List
@@ -106,7 +119,7 @@ func (file *WasmGoSourceFile) parseAstFuncType(astType *ast.FuncType) (*WasmType
 		var err error
 		t.result, err = file.parseAstType(list[0].Type)
 		if err != nil {
-			return nil, fmt.Errorf("error in function type return: %v", err)
+			return nil, fmt.Errorf("error in function return type: %v", err)
 		}
 	}
 	return file.module.signatures.add(t), nil

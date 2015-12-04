@@ -85,7 +85,6 @@ func (s *WasmScope) createIndirectCallExpr(call *ast.CallExpr, name string, iden
 	default:
 		return nil, s.f.file.ErrorNode(call, "unimplemented expression type: %v", ty)
 	case *WasmTypeFunc:
-		fmt.Printf("createIndirectCallExpr, name: %s\n", ty.wasmName)
 		c.signature = ty
 	}
 	return c, nil
@@ -176,6 +175,7 @@ func (s *WasmScope) parseCallExprSelector(call *ast.CallExpr, se *ast.SelectorEx
 }
 
 func (s *WasmScope) parseFuncIdent(ident *ast.Ident, fn *WasmFunc, indent int) (WasmExpression, error) {
+	fn.prepareForIndirectCall()
 	idx, err := s.createLiteralInt32(int32(fn.tabIndex), indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("error creating table index: %v", err)
@@ -189,7 +189,6 @@ func (s *WasmScope) parseFuncIdent(ident *ast.Ident, fn *WasmFunc, indent int) (
 	}
 	fptr.setNode(ident)
 	fptr.setScope(s)
-	fn.prepareForIndirectCall()
 	return fptr, nil
 }
 

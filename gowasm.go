@@ -381,7 +381,14 @@ func (tab *WasmSignatureTable) equivalent(a, b *WasmTypeFunc) bool {
 	if a.result != b.result {
 		return false
 	}
-	// TODO: compare param types
+	if len(a.params) != len(b.params) {
+		return false
+	}
+	for i, t := range a.params {
+		if t != b.params[i] {
+			return false
+		}
+	}
 	return true
 }
 
