@@ -158,6 +158,12 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 		t.setAlign(4)
 		t.signed = true
 		t.fp = true
+	case "float64":
+		t.setName("f64")
+		t.setSize(8)
+		t.setAlign(8)
+		t.signed = true
+		t.fp = true
 	}
 	return t, nil
 }

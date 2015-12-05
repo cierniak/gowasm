@@ -11,3 +11,9 @@ func TestFloat1() float32 {
 	b := addFloat32(float32(4.0), float32(5.0))
 	return a * (b + 1.0)
 }
+
+//wasm:assert_return (invoke "TestFloat2") (f64.const 17.0)
+func TestFloat2() float64 {
+	a := float64(20.0)
+	return a - float64(3.0)
+}
