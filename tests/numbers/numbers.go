@@ -1,6 +1,4 @@
-package newstuff
-
-//import "gowasm/rt/wasm"
+package numbers
 
 func addFloat32(a, b float32) float32 {
 	return a + b

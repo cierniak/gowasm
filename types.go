@@ -24,6 +24,7 @@ type WasmTypeBase struct {
 type WasmTypeScalar struct {
 	WasmTypeBase
 	signed bool
+	fp     bool
 }
 
 type WasmTypePointer struct {
@@ -151,6 +152,12 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 		t.setSize(4)
 		t.setAlign(4)
 		t.signed = false
+	case "float32":
+		t.setName("f32")
+		t.setSize(4)
+		t.setAlign(4)
+		t.signed = true
+		t.fp = true
 	}
 	return t, nil
 }

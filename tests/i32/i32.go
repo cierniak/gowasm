@@ -104,15 +104,15 @@ func testIntFunc2(f IntFunc2, a, b int) int {
 	return f(a, b)
 }
 
-//wasm:assert_return (invoke "Test1") (i32.const 12)
-func Test1() int {
+//wasm:assert_return (invoke "TestCallIndirect1") (i32.const 12)
+func TestCallIndirect1() int {
 	var f IntFunc
 	f = twelve
 	return f()
 }
 
-//wasm:assert_return (invoke "Test2") (i32.const 17)
-func Test2() int {
+//wasm:assert_return (invoke "TestCallIndirect2") (i32.const 17)
+func TestCallIndirect2() int {
 	r := testIntFunc2(sum, 10, 3)
 	r = r + testIntFunc2(max, 2, 4)
 	return r
