@@ -29,7 +29,7 @@ var binOpNames = [...]string{
 	binOpDiv: "div",
 	binOpEq:  "eq",
 	binOpNe:  "ne",
-	binOpLt:  "lt", // TODO: for floats it should be "lt" and for unsigned, it should be "lt_u".
+	binOpLt:  "lt",
 	binOpLe:  "le",
 	binOpGt:  "gt",
 	binOpGe:  "ge",
@@ -560,7 +560,7 @@ func (b *WasmBinOp) print(writer FormattingWriter) {
 	writer.PrintfIndent(b.getIndent(), "(")
 	b.t.print(writer)
 	writer.Printf(".%s", binOpNames[b.op])
-	if binOpWithSign[b.op] {
+	if binOpWithSign[b.op] && !b.t.isFloat() {
 		if b.t.isSigned() {
 			writer.Printf("_s")
 		} else {

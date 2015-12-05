@@ -11,6 +11,7 @@ type WasmType interface {
 	getSize() int
 	getAlign() int
 	isSigned() bool
+	isFloat() bool
 	print(writer FormattingWriter)
 }
 
@@ -79,11 +80,19 @@ func (t *WasmTypeScalar) isSigned() bool {
 	return t.signed
 }
 
+func (t *WasmTypeScalar) isFloat() bool {
+	return t.fp
+}
+
 func (t *WasmTypeScalar) print(writer FormattingWriter) {
 	writer.Printf("%s", t.name)
 }
 
 func (t *WasmTypeFunc) isSigned() bool {
+	return false
+}
+
+func (t *WasmTypeFunc) isFloat() bool {
 	return false
 }
 
@@ -114,11 +123,19 @@ func (t *WasmTypePointer) isSigned() bool {
 	return false
 }
 
+func (t *WasmTypePointer) isFloat() bool {
+	return false
+}
+
 func (t *WasmTypePointer) print(writer FormattingWriter) {
 	writer.Printf("i32")
 }
 
 func (t *WasmTypeStruct) isSigned() bool {
+	return false
+}
+
+func (t *WasmTypeStruct) isFloat() bool {
 	return false
 }
 
