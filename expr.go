@@ -20,6 +20,9 @@ const (
 	binOpLe      BinOp = 8
 	binOpGt      BinOp = 9
 	binOpGe      BinOp = 10
+	binOpAnd     BinOp = 11
+	binOpOr      BinOp = 12
+	binOpXor     BinOp = 13
 )
 
 var binOpNames = [...]string{
@@ -33,6 +36,9 @@ var binOpNames = [...]string{
 	binOpLe:  "le",
 	binOpGt:  "gt",
 	binOpGe:  "ge",
+	binOpAnd: "and",
+	binOpOr:  "or",
+	binOpXor: "xor",
 }
 
 var binOpWithSign = [...]bool{
@@ -46,6 +52,9 @@ var binOpWithSign = [...]bool{
 	binOpLe:  true,
 	binOpGt:  true,
 	binOpGe:  true,
+	binOpAnd: false,
+	binOpOr:  false,
+	binOpXor: false,
 }
 
 var binOpMapping = [...]BinOp{
@@ -61,6 +70,9 @@ var binOpMapping = [...]BinOp{
 	token.GEQ: binOpGe,
 	token.INC: binOpAdd,
 	token.DEC: binOpSub,
+	token.AND: binOpAnd,
+	token.OR:  binOpOr,
+	token.XOR: binOpXor,
 }
 
 type WasmExpression interface {
