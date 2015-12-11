@@ -23,6 +23,8 @@ const (
 	binOpAnd     BinOp = 11
 	binOpOr      BinOp = 12
 	binOpXor     BinOp = 13
+	binOpShl     BinOp = 14
+	binOpShr     BinOp = 15
 )
 
 var binOpNames = [...]string{
@@ -39,6 +41,8 @@ var binOpNames = [...]string{
 	binOpAnd: "and",
 	binOpOr:  "or",
 	binOpXor: "xor",
+	binOpShl: "shl",
+	binOpShr: "shr",
 }
 
 var binOpWithSign = [...]bool{
@@ -55,6 +59,8 @@ var binOpWithSign = [...]bool{
 	binOpAnd: false,
 	binOpOr:  false,
 	binOpXor: false,
+	binOpShl: false,
+	binOpShr: true,
 }
 
 var binOpMapping = [...]BinOp{
@@ -73,6 +79,8 @@ var binOpMapping = [...]BinOp{
 	token.AND: binOpAnd,
 	token.OR:  binOpOr,
 	token.XOR: binOpXor,
+	token.SHL: binOpShl,
+	token.SHR: binOpShr,
 }
 
 type WasmExpression interface {
