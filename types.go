@@ -24,8 +24,9 @@ type WasmTypeBase struct {
 // type: i32 | i64 | f32 | f64
 type WasmTypeScalar struct {
 	WasmTypeBase
-	signed bool
-	fp     bool
+	signed  bool
+	fp      bool
+	dbgName string
 }
 
 type WasmTypePointer struct {
@@ -144,7 +145,9 @@ func (t *WasmTypeStruct) print(writer FormattingWriter) {
 }
 
 func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar, error) {
-	t := &WasmTypeScalar{}
+	t := &WasmTypeScalar{
+		dbgName: name,
+	}
 	switch name {
 	default:
 		return nil, fmt.Errorf("unimplemented scalar type: '%s'", name)
@@ -158,6 +161,11 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 		t.setSize(8)
 		t.setAlign(8)
 		t.signed = true
+	case "uint64":
+		t.setName("i64")
+		t.setSize(8)
+		t.setAlign(8)
+		t.signed = false
 	case "int":
 		fallthrough
 	case "uint32":

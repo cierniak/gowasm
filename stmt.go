@@ -203,8 +203,8 @@ func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, stmt ast.S
 	store := &WasmStore{
 		addr: addr,
 		val:  val,
-		t:    t,
 	}
+	store.setType(t)
 	store.setIndent(indent)
 	store.setScope(s)
 	store.setNode(stmt)

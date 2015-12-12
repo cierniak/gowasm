@@ -86,6 +86,7 @@ var binOpMapping = [...]BinOp{
 type WasmExpression interface {
 	print(writer FormattingWriter)
 	getType() WasmType
+	setType(t WasmType)
 	getFullType() WasmType
 	setFullType(t WasmType)
 	getNode() ast.Node
@@ -111,6 +112,7 @@ type WasmExprBase struct {
 	astNode  ast.Node
 	comment  string
 	scope    *WasmScope
+	ty       WasmType
 	fullType WasmType
 }
 
@@ -118,7 +120,6 @@ type WasmExprBase struct {
 type WasmValue struct {
 	WasmExprBase
 	value string
-	t     WasmType
 }
 
 // ( get_local <var> )
@@ -127,7 +128,6 @@ type WasmGetLocal struct {
 	astIdent *ast.Ident
 	def      WasmVariable
 	f        *WasmFunc
-	t        WasmType
 }
 
 // ( <type>.<binop> <expr> <expr> )
@@ -136,14 +136,12 @@ type WasmBinOp struct {
 	op BinOp
 	x  WasmExpression
 	y  WasmExpression
-	t  WasmType
 }
 
 // ( <type>.load((8|16)_<sign>)? <offset>? <align>? <expr> )
 type WasmLoad struct {
 	WasmExprBase
 	addr WasmExpression
-	t    WasmType
 }
 
 // ( <type>.store <offset>? <align>? <expr> <expr> )
@@ -151,7 +149,6 @@ type WasmStore struct {
 	WasmExprBase
 	addr WasmExpression
 	val  WasmExpression
-	t    WasmType
 }
 
 func (e *WasmExprBase) getIndent() int {
@@ -160,6 +157,10 @@ func (e *WasmExprBase) getIndent() int {
 
 func (e *WasmExprBase) setIndent(indent int) {
 	e.indent = indent
+}
+
+func (e *WasmExprBase) setType(t WasmType) {
+	e.ty = t
 }
 
 func (e *WasmExprBase) getFullType() WasmType {
@@ -269,8 +270,8 @@ func (s *WasmScope) createLiteral(value string, ty WasmType, indent int) (WasmEx
 	}
 	val := &WasmValue{
 		value: value,
-		t:     ty,
 	}
+	val.setType(ty)
 	val.setIndent(indent)
 	return val, nil
 }
@@ -302,10 +303,10 @@ func isSupportedBinOp(tok token.Token) bool {
 func (s *WasmScope) createBinaryExpr(x, y WasmExpression, op BinOp, ty WasmType, indent int) (*WasmBinOp, error) {
 	b := &WasmBinOp{
 		op: op,
-		t:  ty,
 		x:  x,
 		y:  y,
 	}
+	b.setType(ty)
 	b.setIndent(indent)
 	b.setScope(s)
 	return b, nil
@@ -338,6 +339,13 @@ func (s *WasmScope) parseConvertExpr(ty WasmType, v ast.Expr, indent int) (WasmE
 	if err != nil {
 		return nil, err
 	}
+
+	switch ty.(type) {
+	default:
+		expr.setType(ty)
+	case *WasmTypePointer:
+		// Pointer types are always treated as i32
+	}
 	expr.setFullType(ty)
 	return expr, nil
 }
@@ -345,8 +353,8 @@ func (s *WasmScope) parseConvertExpr(ty WasmType, v ast.Expr, indent int) (WasmE
 func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (WasmExpression, error) {
 	l := &WasmLoad{
 		addr: addr,
-		t:    t,
 	}
+	l.setType(t)
 	l.setIndent(indent)
 	return l, nil
 }
@@ -475,7 +483,8 @@ func (s *WasmScope) parseExprLValue(expr ast.Expr, typeHint WasmType, indent int
 		if err != nil {
 			return nil, err
 		}
-		if i.getType().getName() == "i32" {
+		ty := i.getType()
+		if ty.getName() == "i32" {
 			// TODO: check this is really a pointer type
 			lvalue := &LValue{
 				addr: i,
@@ -560,12 +569,12 @@ func (s *WasmScope) parseUnaryExpr(expr *ast.UnaryExpr, indent int) (WasmExpress
 
 func (v *WasmValue) print(writer FormattingWriter) {
 	writer.PrintfIndent(v.getIndent(), "(")
-	v.t.print(writer)
+	v.ty.print(writer)
 	writer.Printf(".const %s)%s\n", v.value, v.getComment())
 }
 
 func (v *WasmValue) getType() WasmType {
-	return v.t
+	return v.ty
 }
 
 func (v *WasmValue) getNode() ast.Node {
@@ -573,15 +582,15 @@ func (v *WasmValue) getNode() ast.Node {
 }
 
 func (b *WasmBinOp) getType() WasmType {
-	return b.t
+	return b.ty
 }
 
 func (b *WasmBinOp) print(writer FormattingWriter) {
 	writer.PrintfIndent(b.getIndent(), "(")
-	b.t.print(writer)
+	b.ty.print(writer)
 	writer.Printf(".%s", binOpNames[b.op])
-	if binOpWithSign[b.op] && !b.t.isFloat() {
-		if b.t.isSigned() {
+	if binOpWithSign[b.op] && !b.ty.isFloat() {
+		if b.ty.isSigned() {
 			writer.Printf("_s")
 		} else {
 			writer.Printf("_u")
@@ -598,7 +607,7 @@ func (b *WasmBinOp) getNode() ast.Node {
 }
 
 func (l *WasmLoad) getType() WasmType {
-	return l.t
+	return l.ty
 }
 
 func (l *WasmLoad) print(writer FormattingWriter) {
@@ -614,7 +623,7 @@ func (l *WasmLoad) print(writer FormattingWriter) {
 }
 
 func (s *WasmStore) getType() WasmType {
-	return s.t
+	return s.ty
 }
 
 func (s *WasmStore) print(writer FormattingWriter) {
@@ -635,6 +644,9 @@ func (g *WasmGetLocal) print(writer FormattingWriter) {
 }
 
 func (g *WasmGetLocal) getType() WasmType {
-	//return g.f.module.variables[g.astIdent.Obj].getType()
-	return g.def.getType()
+	if g.ty != nil {
+		return g.ty
+	} else {
+		return g.def.getType()
+	}
 }
