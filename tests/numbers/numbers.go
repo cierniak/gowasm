@@ -45,3 +45,9 @@ func TestBitwise2() int64 {
 	b = b >> 60
 	return int64(b)
 }
+
+//wasm:assert_return (invoke "TestBitwise3") (i64.const -6)
+func TestBitwise3() int64 {
+	a := int64(5)
+	return ^a
+}

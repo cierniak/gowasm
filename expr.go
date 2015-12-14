@@ -241,12 +241,16 @@ func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (Was
 	}
 }
 
-func (s *WasmScope) createLiteralInt32(value int32, indent int) (WasmExpression, error) {
-	t, err := s.f.module.convertAstTypeNameToWasmType("int32")
+func (s *WasmScope) createLiteralForType(value int32, typ string, indent int) (WasmExpression, error) {
+	t, err := s.f.module.convertAstTypeNameToWasmType(typ)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't create type int32 for a literal: %v", err)
+		return nil, fmt.Errorf("couldn't create type %v for a literal: %v", typ, err)
 	}
 	return s.createLiteral(fmt.Sprintf("%d", value), t, indent)
+}
+
+func (s *WasmScope) createLiteralInt32(value int32, indent int) (WasmExpression, error) {
+	return s.createLiteralForType(value, "int32", indent)
 }
 
 func (s *WasmScope) createNilLiteral(t WasmType, indent int) (WasmExpression, error) {
@@ -565,7 +569,7 @@ func (s *WasmScope) parseBitwiseComplement(astExpr ast.Expr, indent int) (WasmEx
 	}
 
 	// TODO: make it work for int64
-	mask, err := s.createLiteralInt32(-1, indent+1)
+	mask, err := s.createLiteral("-1", expr.getType(), indent+1)
 	if err != nil {
 		return nil, err
 	}
