@@ -53,6 +53,12 @@ type WasmTypeFunc struct {
 	indent   int
 }
 
+type WasmTypeArray struct {
+	WasmTypeBase
+	length      uint32
+	elementType WasmType
+}
+
 func (t *WasmTypeBase) getName() string {
 	return t.name
 }
@@ -144,6 +150,18 @@ func (t *WasmTypeStruct) print(writer FormattingWriter) {
 	writer.Printf("%s", t.name)
 }
 
+func (a *WasmTypeArray) isSigned() bool {
+	return false
+}
+
+func (a *WasmTypeArray) isFloat() bool {
+	return false
+}
+
+func (a *WasmTypeArray) print(writer FormattingWriter) {
+	writer.Printf("i32")
+}
+
 func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar, error) {
 	t := &WasmTypeScalar{
 		dbgName: name,
@@ -197,10 +215,36 @@ func (file *WasmGoSourceFile) convertAstTypeToWasmType(astType *ast.Ident) (*Was
 	return file.module.convertAstTypeNameToWasmType(astType.Name)
 }
 
+func (file *WasmGoSourceFile) evaluateIntConstant(expr ast.Expr) (int, error) {
+	// TODO: implement this.
+	return 17, nil
+}
+
+func (file *WasmGoSourceFile) parseArrayType(astType *ast.ArrayType) (WasmType, error) {
+	element, err := file.parseAstType(astType.Elt)
+	if err != nil {
+		return nil, fmt.Errorf("error in an array type: %v", err)
+	}
+	length, err := file.evaluateIntConstant(astType.Len)
+	if err != nil {
+		return nil, fmt.Errorf("error evaluating length of an array type: %v", err)
+	}
+	arr := &WasmTypeArray{
+		length:      uint32(length),
+		elementType: element,
+	}
+	arr.setName(fmt.Sprintf("[%d]%s", length, element.getName()))
+	arr.setAlign(4)
+	arr.setSize(4)
+	return arr, nil
+}
+
 func (file *WasmGoSourceFile) parseAstType(astType ast.Expr) (WasmType, error) {
 	switch astType := astType.(type) {
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", astType)
+	case *ast.ArrayType:
+		return file.parseArrayType(astType)
 	case *ast.Ident:
 		name := astType.Name
 		t, ok := file.module.types[name]

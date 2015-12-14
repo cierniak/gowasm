@@ -230,6 +230,8 @@ func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (Was
 		return s.parseCallExpr(expr, indent)
 	case *ast.Ident:
 		return s.parseIdent(expr, indent)
+	case *ast.IndexExpr:
+		return s.parseIndexExpr(expr, typeHint, indent)
 	case *ast.ParenExpr:
 		return s.parseParenExpr(expr, typeHint, indent)
 	case *ast.SelectorExpr:
@@ -406,6 +408,61 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 	g.setNode(ident)
 	g.setFullType(v.getFullType())
 	return g, nil
+}
+
+func (s *WasmScope) parseIndexExprLValue(expr *ast.IndexExpr, typeHint WasmType, indent int) (*LValue, error) {
+	index, err := s.parseExpr(expr.Index, nil, indent+3)
+	if err != nil {
+		return nil, fmt.Errorf("error in IndexExpr: %v", err)
+	}
+	index.setComment("array index")
+	x, err := s.parseExpr(expr.X, nil, indent+2)
+	if err != nil {
+		return nil, fmt.Errorf("error in IndexExpr: %v", err)
+	}
+	ty := x.getType()
+	if ty == nil {
+		return nil, s.f.file.ErrorNode(expr, "error in IndexExpr: full type of x is nil")
+	}
+	switch ty := ty.(type) {
+	default:
+		return nil, fmt.Errorf("unsupported type in IndexExpr: %v", ty)
+	case *WasmTypeArray:
+		multiplier, err := s.createLiteralInt32(int32(ty.elementType.getSize()), indent+3)
+		if err != nil {
+			return nil, fmt.Errorf("error in offset for index expression: %v", err)
+		}
+		multiplier.setComment("array element size")
+		offset, err := s.createBinaryExpr(index, multiplier, binOpMul, x.getType(), indent+2)
+		if err != nil {
+			return nil, fmt.Errorf("error in offset for index expression: %v", err)
+		}
+		offset.setComment("array element offset")
+		addr, err := s.createBinaryExpr(x, offset, binOpAdd, x.getType(), indent+1)
+		if err != nil {
+			return nil, fmt.Errorf("error in address computation for index expression: %v", err)
+		}
+		addr.setComment("array element address")
+		l := &LValue{
+			addr: addr,
+			t:    ty.elementType,
+		}
+		return l, nil
+	}
+}
+
+func (s *WasmScope) parseIndexExpr(expr *ast.IndexExpr, typeHint WasmType, indent int) (WasmExpression, error) {
+	lvalue, err := s.parseIndexExprLValue(expr, typeHint, indent)
+	if err != nil {
+		return nil, fmt.Errorf("error in address computation for IndexExpr %v: %v", expr, err)
+	}
+	l, err := s.createLoad(lvalue.addr, lvalue.t, indent)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a load in a IndexExpr: %v", expr)
+	}
+	l.setScope(s)
+	l.setNode(expr)
+	return l, nil
 }
 
 func (s *WasmScope) parseParenExpr(p *ast.ParenExpr, typeHint WasmType, indent int) (WasmExpression, error) {
