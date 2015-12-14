@@ -558,12 +558,35 @@ func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, e
 	}
 }
 
+func (s *WasmScope) parseBitwiseComplement(astExpr ast.Expr, indent int) (WasmExpression, error) {
+	expr, err := s.parseExpr(astExpr, nil, indent+1)
+	if err != nil {
+		return nil, fmt.Errorf("error in bitwise complement: %v", err)
+	}
+
+	// TODO: make it work for int64
+	mask, err := s.createLiteralInt32(-1, indent+1)
+	if err != nil {
+		return nil, err
+	}
+	mask.setComment("mask for bitwise complement")
+	mask.setScope(s)
+
+	comp, err := s.createBinaryExpr(mask, expr, binOpXor, mask.getType(), indent)
+	if err != nil {
+		return nil, fmt.Errorf("error in bitwise complement: %v", err)
+	}
+	return comp, nil
+}
+
 func (s *WasmScope) parseUnaryExpr(expr *ast.UnaryExpr, indent int) (WasmExpression, error) {
 	switch expr.Op {
 	default:
 		return nil, fmt.Errorf("unimplemented UnaryExpr, token='%v'", expr.Op)
 	case token.AND:
 		return s.parseAddressOf(expr.X, indent)
+	case token.XOR:
+		return s.parseBitwiseComplement(expr.X, indent)
 	}
 }
 

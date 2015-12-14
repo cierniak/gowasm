@@ -48,9 +48,7 @@ func main() {
 	fmt.Printf("-- Asserting return... gc.Alloc(128, 64) --> %d\n", v32)
 	v32 = gc.Alloc(64, 32)
 	fmt.Printf("-- Asserting return... gc.Alloc(64, 32) --> %d\n", v32)
-	v64 = newstuff.TestBitwise1(9, 3)
-	fmt.Printf("-- Invoking... newstuff.TestBitwise1(9, 3) --> %v\n", v64)
-	v64 = newstuff.TestBitwise2()
-	fmt.Printf("-- Invoking... newstuff.TestBitwise2() --> %v\n", v64)
+	v64 = newstuff.TestBitwise3()
+	fmt.Printf("-- Invoking... newstuff.TestBitwise3() --> %v\n", v64)
 	fmt.Printf("Tests complete\n")
 }
