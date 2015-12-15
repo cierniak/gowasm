@@ -576,10 +576,12 @@ func (s *WasmScope) generateAlloc(sizeConst, alignConst int32, expr ast.Node, pt
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", sizeConst)
 	}
+	size.setComment("array total size")
 	align, err := s.createLiteralInt32(alignConst, indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", alignConst)
 	}
+	align.setComment("alignment")
 	args := []WasmExpression{size, align}
 	allocFnName := mangleFunctionName("gowasm/rt/gc", "Alloc")
 	fn, ok := s.f.module.funcSymTab[allocFnName]

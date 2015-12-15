@@ -256,21 +256,23 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 }
 
 func (s *WasmScope) genVarInit(v WasmVariable, stmt *ast.DeclStmt, node ast.Node, indent int) (WasmExpression, error) {
-	var zero WasmExpression
+	var initValue WasmExpression
 	var err error
-	switch v.getType().(type) {
+	switch ty := v.getType().(type) {
 	default:
-		zero, err = s.createNilLiteral(v.getType(), indent+2)
+		initValue, err = s.createNilLiteral(v.getType(), indent+2)
 		if err != nil {
 			return nil, err
 		}
 	case *WasmTypeArray:
-		zero, err = s.generateAlloc(20, 8, node, v.getType(), indent+1)
+		size := int32(ty.length) * int32(ty.elementType.getSize())
+		align := ty.elementType.getAlign()
+		initValue, err = s.generateAlloc(size, int32(align), node, ty, indent+1)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't generate array alloc: %v", err)
 		}
 	}
-	expr, err := s.createSetVar(v, zero, stmt, indent)
+	expr, err := s.createSetVar(v, initValue, stmt, indent)
 	if err != nil {
 		return nil, err
 	}
