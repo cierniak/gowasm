@@ -55,6 +55,8 @@ type WasmTypeFunc struct {
 	indent   int
 }
 
+const ellipsisLength = -1
+
 type WasmTypeArray struct {
 	WasmTypeBase
 	length      uint32
@@ -229,11 +231,14 @@ func (file *WasmGoSourceFile) evaluateIntConstantBasicLit(expr *ast.BasicLit) (i
 }
 
 func (file *WasmGoSourceFile) evaluateIntConstant(expr ast.Expr) (int, error) {
+	fmt.Printf("evaluateIntConstant, expr: %v\n", expr)
 	switch expr := expr.(type) {
 	default:
 		return 0, fmt.Errorf("unsupported constant expression: %v", expr)
 	case *ast.BasicLit:
 		return file.evaluateIntConstantBasicLit(expr)
+	case *ast.Ellipsis:
+		return ellipsisLength, nil
 	}
 }
 
@@ -250,7 +255,11 @@ func (file *WasmGoSourceFile) parseArrayType(astType *ast.ArrayType) (WasmType, 
 		length:      uint32(length),
 		elementType: element,
 	}
-	arr.setName(fmt.Sprintf("[%d]%s", length, element.getName()))
+	if length == ellipsisLength {
+		arr.setName(fmt.Sprintf("[...]%s", element.getName()))
+	} else {
+		arr.setName(fmt.Sprintf("[%d]%s", length, element.getName()))
+	}
 	arr.setAlign(4)
 	arr.setSize(4)
 	return arr, nil

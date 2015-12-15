@@ -228,6 +228,8 @@ func (s *WasmScope) parseExpr(expr ast.Expr, typeHint WasmType, indent int) (Was
 		return s.parseBinaryExpr(expr, typeHint, indent)
 	case *ast.CallExpr:
 		return s.parseCallExpr(expr, indent)
+	case *ast.CompositeLit:
+		return s.parseCompositeLit(expr, indent)
 	case *ast.Ident:
 		return s.parseIdent(expr, indent)
 	case *ast.IndexExpr:
@@ -356,6 +358,26 @@ func (s *WasmScope) parseConvertExpr(ty WasmType, v ast.Expr, indent int) (WasmE
 	return expr, nil
 }
 
+func (s *WasmScope) parseCompositeLit(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
+	ty, err := s.f.file.parseAstType(expr.Type)
+	if err != nil {
+		return nil, fmt.Errorf("CompositeLit, type not found: %v", err)
+	}
+	switch ty := ty.(type) {
+	default:
+	case *WasmTypeArray:
+		ty.length = uint32(len(expr.Elts))
+		size := int32(ty.length) * int32(ty.elementType.getSize())
+		align := ty.elementType.getAlign()
+		initValue, err := s.generateAlloc(size, int32(align), expr, ty, indent)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't generate array alloc for CompositeLit: %v", err)
+		}
+		return initValue, nil
+	}
+	return nil, fmt.Errorf("unimplemented CompositeLit: %v", expr)
+}
+
 func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (WasmExpression, error) {
 	l := &WasmLoad{
 		addr: addr,
@@ -420,7 +442,7 @@ func (s *WasmScope) parseIndexExprLValue(expr *ast.IndexExpr, typeHint WasmType,
 	if err != nil {
 		return nil, fmt.Errorf("error in IndexExpr: %v", err)
 	}
-	ty := x.getType()
+	ty := x.getFullType()
 	if ty == nil {
 		return nil, s.f.file.ErrorNode(expr, "error in IndexExpr: full type of x is nil")
 	}
