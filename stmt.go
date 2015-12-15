@@ -132,7 +132,7 @@ func (s *WasmScope) parseDefineAssignLHS(lhs []ast.Expr, ty WasmType, indent int
 	}
 	switch lhs := lhs[0].(type) {
 	default:
-		return nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
+		return nil, fmt.Errorf("unimplemented LHS in define-assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
 	case *ast.Ident:
 		return s.createLocalVar(lhs, ty)
 	}
@@ -145,6 +145,12 @@ func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty WasmType, indent int) (Was
 	switch lhs := lhs[0].(type) {
 	default:
 		return nil, nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
+	case *ast.IndexExpr:
+		lvalue, err := s.parseIndexExprLValue(lhs, nil, indent)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error in address computation for IndexExpr %v: %v", lhs, err)
+		}
+		return nil, lvalue, nil
 	case *ast.SelectorExpr:
 		lvalue, err := s.parseSelectorExprLValue(lhs, nil, indent)
 		if err != nil {

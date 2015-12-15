@@ -703,7 +703,7 @@ func (l *WasmLoad) print(writer FormattingWriter) {
 	}
 	writer.PrintfIndent(l.getIndent(), "(%s.load%s\n", ts, l.getComment())
 	l.addr.print(writer)
-	writer.PrintfIndent(l.getIndent(), ") ;; load\n")
+	writer.PrintfIndent(l.getIndent(), ") ;; load%s\n", l.getComment())
 }
 
 func (s *WasmStore) getType() WasmType {
@@ -720,7 +720,7 @@ func (s *WasmStore) print(writer FormattingWriter) {
 	writer.PrintfIndent(s.getIndent(), "(%s.store%s\n", ts, s.getComment())
 	s.addr.print(writer)
 	s.val.print(writer)
-	writer.PrintfIndent(s.getIndent(), ") ;; load\n")
+	writer.PrintfIndent(s.getIndent(), ") ;; store%s\n", s.getComment())
 }
 
 func (g *WasmGetLocal) print(writer FormattingWriter) {
