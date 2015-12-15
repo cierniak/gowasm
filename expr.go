@@ -571,7 +571,7 @@ func (s *WasmScope) parseStarExpr(expr *ast.StarExpr, typeHint WasmType, indent 
 	return l, nil
 }
 
-func (s *WasmScope) generateAlloc(sizeConst, alignConst int32, expr ast.Expr, ptrTy WasmType, indent int) (WasmExpression, error) {
+func (s *WasmScope) generateAlloc(sizeConst, alignConst int32, expr ast.Node, ptrTy WasmType, indent int) (WasmExpression, error) {
 	size, err := s.createLiteralInt32(sizeConst, indent+1)
 	if err != nil {
 		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", sizeConst)

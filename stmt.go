@@ -255,10 +255,20 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 	return sl, nil
 }
 
-func (s *WasmScope) genVarInit(v WasmVariable, stmt *ast.DeclStmt, indent int) (WasmExpression, error) {
-	zero, err := s.createNilLiteral(v.getType(), indent+2)
-	if err != nil {
-		return nil, err
+func (s *WasmScope) genVarInit(v WasmVariable, stmt *ast.DeclStmt, node ast.Node, indent int) (WasmExpression, error) {
+	var zero WasmExpression
+	var err error
+	switch v.getType().(type) {
+	default:
+		zero, err = s.createNilLiteral(v.getType(), indent+2)
+		if err != nil {
+			return nil, err
+		}
+	case *WasmTypeArray:
+		zero, err = s.generateAlloc(20, 8, node, v.getType(), indent+1)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't generate array alloc: %v", err)
+		}
 	}
 	expr, err := s.createSetVar(v, zero, stmt, indent)
 	if err != nil {
@@ -282,7 +292,7 @@ func (s *WasmScope) parseDeclStmt(stmt *ast.DeclStmt, indent int) (WasmExpressio
 			if err != nil {
 				return nil, err
 			}
-			return s.genVarInit(v, stmt, indent)
+			return s.genVarInit(v, stmt, decl, indent)
 		}
 	}
 }
