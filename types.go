@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
+	"strconv"
 )
 
 type WasmType interface {
@@ -215,9 +217,24 @@ func (file *WasmGoSourceFile) convertAstTypeToWasmType(astType *ast.Ident) (*Was
 	return file.module.convertAstTypeNameToWasmType(astType.Name)
 }
 
+func (file *WasmGoSourceFile) evaluateIntConstantBasicLit(expr *ast.BasicLit) (int, error) {
+	if expr.Kind != token.INT {
+		return 0, fmt.Errorf("int constant expression with literal of kind: %v", expr.Kind)
+	}
+	i, err := strconv.Atoi(expr.Value)
+	if err != nil {
+		return 0, fmt.Errorf("error parsing an integer constant:'%s' %v", expr.Value, err)
+	}
+	return i, nil
+}
+
 func (file *WasmGoSourceFile) evaluateIntConstant(expr ast.Expr) (int, error) {
-	// TODO: implement this.
-	return 17, nil
+	switch expr := expr.(type) {
+	default:
+		return 0, fmt.Errorf("unsupported constant expression: %v", expr)
+	case *ast.BasicLit:
+		return file.evaluateIntConstantBasicLit(expr)
+	}
 }
 
 func (file *WasmGoSourceFile) parseArrayType(astType *ast.ArrayType) (WasmType, error) {
