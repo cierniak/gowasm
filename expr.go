@@ -571,24 +571,14 @@ func (s *WasmScope) parseStarExpr(expr *ast.StarExpr, typeHint WasmType, indent 
 	return l, nil
 }
 
-func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
-	t, err := s.f.file.parseAstType(expr.Type)
+func (s *WasmScope) generateAlloc(sizeConst, alignConst int32, expr ast.Expr, ptrTy WasmType, indent int) (WasmExpression, error) {
+	size, err := s.createLiteralInt32(sizeConst, indent+1)
 	if err != nil {
-		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
+		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", sizeConst)
 	}
-
-	ptrTy, err := s.f.file.createPointerType(t)
+	align, err := s.createLiteralInt32(alignConst, indent+1)
 	if err != nil {
-		return nil, fmt.Errorf("struct allocation, couldn't create a pointer type: %v", err)
-	}
-
-	size, err := s.createLiteralInt32(int32(t.getSize()), indent+1)
-	if err != nil {
-		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getSize())
-	}
-	align, err := s.createLiteralInt32(int32(t.getAlign()), indent+1)
-	if err != nil {
-		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", t.getAlign())
+		return nil, fmt.Errorf("struct allocation, couldn't create int32 literal for: %v", alignConst)
 	}
 	args := []WasmExpression{size, align}
 	allocFnName := mangleFunctionName("gowasm/rt/gc", "Alloc")
@@ -602,6 +592,20 @@ func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmEx
 		callExpr.setFullType(ptrTy)
 	}
 	return callExpr, err
+}
+
+func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
+	t, err := s.f.file.parseAstType(expr.Type)
+	if err != nil {
+		return nil, fmt.Errorf("struct allocation, type not found: %v", expr.Type)
+	}
+
+	ptrTy, err := s.f.file.createPointerType(t)
+	if err != nil {
+		return nil, fmt.Errorf("struct allocation, couldn't create a pointer type: %v", err)
+	}
+
+	return s.generateAlloc(int32(t.getSize()), int32(t.getAlign()), expr, ptrTy, indent)
 }
 
 func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, error) {
