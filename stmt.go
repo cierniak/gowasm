@@ -255,6 +255,20 @@ func (s *WasmScope) createSetVar(v WasmVariable, rhs WasmExpression, stmt ast.St
 	return sl, nil
 }
 
+func (s *WasmScope) genVarInit(v WasmVariable, stmt *ast.DeclStmt, indent int) (WasmExpression, error) {
+	zero, err := s.createNilLiteral(v.getType(), indent+2)
+	if err != nil {
+		return nil, err
+	}
+	expr, err := s.createSetVar(v, zero, stmt, indent)
+	if err != nil {
+		return nil, err
+	}
+	expr.setNode(stmt)
+	expr.setScope(s)
+	return expr, nil
+}
+
 func (s *WasmScope) parseDeclStmt(stmt *ast.DeclStmt, indent int) (WasmExpression, error) {
 	switch decl := stmt.Decl.(type) {
 	default:
@@ -268,17 +282,7 @@ func (s *WasmScope) parseDeclStmt(stmt *ast.DeclStmt, indent int) (WasmExpressio
 			if err != nil {
 				return nil, err
 			}
-			zero, err := s.createNilLiteral(v.getType(), indent+2)
-			if err != nil {
-				return nil, err
-			}
-			expr, err := s.createSetVar(v, zero, stmt, indent)
-			if err != nil {
-				return nil, err
-			}
-			expr.setNode(stmt)
-			expr.setScope(s)
-			return expr, nil
+			return s.genVarInit(v, stmt, indent)
 		}
 	}
 }
