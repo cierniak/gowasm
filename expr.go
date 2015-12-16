@@ -432,16 +432,7 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 	return g, nil
 }
 
-func (s *WasmScope) parseIndexExprLValue(expr *ast.IndexExpr, typeHint WasmType, indent int) (*LValue, error) {
-	index, err := s.parseExpr(expr.Index, nil, indent+3)
-	if err != nil {
-		return nil, fmt.Errorf("error in IndexExpr: %v", err)
-	}
-	index.setComment("array index")
-	x, err := s.parseExpr(expr.X, nil, indent+2)
-	if err != nil {
-		return nil, fmt.Errorf("error in IndexExpr: %v", err)
-	}
+func (s *WasmScope) createIndexExprLValue(index, x WasmExpression, expr *ast.IndexExpr, typeHint WasmType, indent int) (*LValue, error) {
 	ty := x.getFullType()
 	if ty == nil {
 		return nil, s.f.file.ErrorNode(expr, "error in IndexExpr: full type of x is nil")
@@ -471,6 +462,19 @@ func (s *WasmScope) parseIndexExprLValue(expr *ast.IndexExpr, typeHint WasmType,
 		}
 		return l, nil
 	}
+}
+
+func (s *WasmScope) parseIndexExprLValue(expr *ast.IndexExpr, typeHint WasmType, indent int) (*LValue, error) {
+	index, err := s.parseExpr(expr.Index, nil, indent+3)
+	if err != nil {
+		return nil, fmt.Errorf("error in IndexExpr: %v", err)
+	}
+	index.setComment("array index")
+	x, err := s.parseExpr(expr.X, nil, indent+2)
+	if err != nil {
+		return nil, fmt.Errorf("error in IndexExpr: %v", err)
+	}
+	return s.createIndexExprLValue(index, x, expr, typeHint, indent)
 }
 
 func (s *WasmScope) parseIndexExpr(expr *ast.IndexExpr, typeHint WasmType, indent int) (WasmExpression, error) {

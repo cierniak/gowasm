@@ -178,6 +178,21 @@ func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, stmt
 
 func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs ast.Expr, indent int) ([]WasmExpression, error) {
 	exprList := []WasmExpression{expr}
+	fmt.Printf("initValuesIfNeeded, expr: %v\n", expr)
+	switch rhs := rhs.(type) {
+	default:
+	case *ast.CompositeLit:
+		fmt.Printf("initValuesIfNeeded, CompositeLit, rhs: %v\n", rhs)
+		for i, astExpr := range rhs.Elts {
+			fmt.Printf("  initValuesIfNeeded, CompositeLit, astExpr #%d: %v\n", i, astExpr)
+			val, err := s.parseExpr(astExpr, nil, indent+1)
+			if err != nil {
+				return nil, err
+			}
+			index, err := s.createLiteralInt32(int32(i), indent+2)
+			exprList = append(exprList, index, val)
+		}
+	}
 	return exprList, nil
 }
 
