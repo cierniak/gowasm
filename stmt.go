@@ -186,16 +186,21 @@ func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs 
 			if err != nil {
 				return nil, err
 			}
-			x := s.createGetLocal(v, rhs, indent)
-			index, err := s.createLiteralInt32(int32(i), indent+2)
+			x := s.createGetLocal(v, rhs, indent+2)
+			index, err := s.createLiteralInt32(int32(i), indent+3)
 			if err != nil {
 				return nil, err
 			}
+			index.setComment("element index")
 			lvalue, err := s.createIndexExprLValue(index, x, rhs, nil, indent)
 			if err != nil {
 				return nil, err
 			}
 			initExpr, err := s.parseAssignToLvalue(lvalue, val, stmt, indent)
+			if err != nil {
+				return nil, err
+			}
+			initExpr.setComment(fmt.Sprintf("initialize array element #%d", i))
 			exprList = append(exprList, initExpr)
 		}
 	}
