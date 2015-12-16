@@ -387,6 +387,18 @@ func (s *WasmScope) createLoad(addr WasmExpression, t WasmType, indent int) (Was
 	return l, nil
 }
 
+func (s *WasmScope) createGetLocal(v WasmVariable, node ast.Node, indent int) *WasmGetLocal {
+	g := &WasmGetLocal{
+		def: v,
+		f:   s.f,
+	}
+	g.setIndent(indent)
+	g.setScope(s)
+	g.setNode(node)
+	g.setFullType(v.getFullType())
+	return g
+}
+
 func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, error) {
 	v, ok := s.f.module.variables[ident.Obj]
 	if !ok {
@@ -420,22 +432,15 @@ func (s *WasmScope) parseIdent(ident *ast.Ident, indent int) (WasmExpression, er
 	case *WasmLocal:
 	case *WasmParam:
 	}
-	g := &WasmGetLocal{
-		astIdent: ident,
-		def:      v,
-		f:        s.f,
-	}
-	g.setIndent(indent)
-	g.setScope(s)
-	g.setNode(ident)
-	g.setFullType(v.getFullType())
+	g := s.createGetLocal(v, ident, indent)
+	g.astIdent = ident
 	return g, nil
 }
 
-func (s *WasmScope) createIndexExprLValue(index, x WasmExpression, expr *ast.IndexExpr, typeHint WasmType, indent int) (*LValue, error) {
+func (s *WasmScope) createIndexExprLValue(index, x WasmExpression, node ast.Node, typeHint WasmType, indent int) (*LValue, error) {
 	ty := x.getFullType()
 	if ty == nil {
-		return nil, s.f.file.ErrorNode(expr, "error in IndexExpr: full type of x is nil")
+		return nil, s.f.file.ErrorNode(node, "error in IndexExpr: full type of x is nil")
 	}
 	switch ty := ty.(type) {
 	default:

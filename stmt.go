@@ -176,21 +176,27 @@ func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, stmt
 	return s.createStore(lvalue.addr, rhs, rhs.getType(), stmt, indent)
 }
 
-func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs ast.Expr, indent int) ([]WasmExpression, error) {
+func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs ast.Expr, stmt *ast.AssignStmt, indent int) ([]WasmExpression, error) {
 	exprList := []WasmExpression{expr}
-	fmt.Printf("initValuesIfNeeded, expr: %v\n", expr)
 	switch rhs := rhs.(type) {
 	default:
 	case *ast.CompositeLit:
-		fmt.Printf("initValuesIfNeeded, CompositeLit, rhs: %v\n", rhs)
 		for i, astExpr := range rhs.Elts {
-			fmt.Printf("  initValuesIfNeeded, CompositeLit, astExpr #%d: %v\n", i, astExpr)
 			val, err := s.parseExpr(astExpr, nil, indent+1)
 			if err != nil {
 				return nil, err
 			}
+			x := s.createGetLocal(v, rhs, indent)
 			index, err := s.createLiteralInt32(int32(i), indent+2)
-			exprList = append(exprList, index, val)
+			if err != nil {
+				return nil, err
+			}
+			lvalue, err := s.createIndexExprLValue(index, x, rhs, nil, indent)
+			if err != nil {
+				return nil, err
+			}
+			initExpr, err := s.parseAssignToLvalue(lvalue, val, stmt, indent)
+			exprList = append(exprList, initExpr)
 		}
 	}
 	return exprList, nil
@@ -233,7 +239,7 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) ([]WasmExp
 	if err != nil {
 		return nil, err
 	}
-	return s.initValuesIfNeeded(v, expr, stmt.Rhs[0], indent)
+	return s.initValuesIfNeeded(v, expr, stmt.Rhs[0], stmt, indent)
 }
 
 func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, stmt ast.Stmt, indent int) (WasmExpression, error) {
