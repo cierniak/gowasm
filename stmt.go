@@ -92,32 +92,38 @@ func (s *WasmScope) parseStatementList(stmts []ast.Stmt, indent int) error {
 		if err != nil {
 			return err
 		}
-		s.expressions = append(s.expressions, expr)
+		s.expressions = append(s.expressions, expr...)
 	}
 	return nil
 }
 
-func (s *WasmScope) parseStmt(stmt ast.Stmt, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseStmt(stmt ast.Stmt, indent int) ([]WasmExpression, error) {
+	var expr WasmExpression
+	var err error
 	switch stmt := stmt.(type) {
 	default:
 		return nil, s.f.file.ErrorNode(stmt, "unimplemented statement")
 	case *ast.AssignStmt:
 		return s.parseAssignStmt(stmt, indent)
 	case *ast.BlockStmt:
-		return s.parseBlockStmt(stmt, indent)
+		expr, err = s.parseBlockStmt(stmt, indent)
 	case *ast.DeclStmt:
-		return s.parseDeclStmt(stmt, indent)
+		expr, err = s.parseDeclStmt(stmt, indent)
 	case *ast.ExprStmt:
-		return s.parseExprStmt(stmt, indent)
+		expr, err = s.parseExprStmt(stmt, indent)
 	case *ast.ForStmt:
-		return s.parseForStmt(stmt, indent)
+		expr, err = s.parseForStmt(stmt, indent)
 	case *ast.IfStmt:
-		return s.parseIfStmt(stmt, indent)
+		expr, err = s.parseIfStmt(stmt, indent)
 	case *ast.IncDecStmt:
-		return s.parseIncDecStmt(stmt, indent)
+		expr, err = s.parseIncDecStmt(stmt, indent)
 	case *ast.ReturnStmt:
-		return s.parseReturnStmt(stmt, indent)
+		expr, err = s.parseReturnStmt(stmt, indent)
 	}
+	if err != nil {
+		return nil, err
+	}
+	return []WasmExpression{expr}, nil
 }
 
 func (s *WasmScope) createNop(indent int) *WasmNop {
@@ -170,7 +176,12 @@ func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, stmt
 	return s.createStore(lvalue.addr, rhs, rhs.getType(), stmt, indent)
 }
 
-func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpression, error) {
+func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs ast.Expr, indent int) ([]WasmExpression, error) {
+	exprList := []WasmExpression{expr}
+	return exprList, nil
+}
+
+func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) ([]WasmExpression, error) {
 	if len(stmt.Lhs) != 1 || len(stmt.Rhs) != 1 {
 		return nil, fmt.Errorf("unimplemented multi-value AssignStmt")
 	}
@@ -198,11 +209,16 @@ func (s *WasmScope) parseAssignStmt(stmt *ast.AssignStmt, indent int) (WasmExpre
 	if err != nil {
 		return nil, err
 	}
+	var expr WasmExpression
 	if lvalue != nil {
-		return s.parseAssignToLvalue(lvalue, rhs, stmt, indent)
+		expr, err = s.parseAssignToLvalue(lvalue, rhs, stmt, indent)
 	} else {
-		return s.createSetVar(v, rhs, stmt, indent)
+		expr, err = s.createSetVar(v, rhs, stmt, indent)
 	}
+	if err != nil {
+		return nil, err
+	}
+	return s.initValuesIfNeeded(v, expr, stmt.Rhs[0], indent)
 }
 
 func (s *WasmScope) createStore(addr, val WasmExpression, t WasmType, stmt ast.Stmt, indent int) (WasmExpression, error) {
@@ -406,12 +422,12 @@ func (s *WasmScope) parseIfStmt(stmt *ast.IfStmt, indent int) (WasmExpression, e
 		return nil, fmt.Errorf("unimplemented IfStmt with an init")
 	}
 	var elseStmt WasmExpression
-	var err error
 	if stmt.Else != nil {
-		elseStmt, err = s.parseStmt(stmt.Else, indent+1)
-		if err != nil {
+		elseStmtList, err := s.parseStmt(stmt.Else, indent+1)
+		if err != nil || len(elseStmtList) != 1 {
 			return nil, fmt.Errorf("error in the else statement: %v", err)
 		}
+		elseStmt = elseStmtList[0]
 	}
 	cond, err := s.parseExpr(stmt.Cond, nil, indent+1)
 	if err != nil {
