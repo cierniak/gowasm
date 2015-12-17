@@ -767,12 +767,23 @@ func (s *WasmStore) getType() WasmType {
 
 func (s *WasmStore) print(writer FormattingWriter) {
 	var ts string
-	if s.getType().getSize() == 4 {
-		ts = "i32"
-	} else {
-		panic(fmt.Errorf("uimplemented store type: %v", s.getType()))
+	var size string
+	if s.getType().isFloat() {
+		panic(fmt.Errorf("uimplemented float store: %v", s.getType()))
 	}
-	writer.PrintfIndent(s.getIndent(), "(%s.store%s\n", ts, s.getComment())
+	switch s.getType().getSize() {
+	default:
+		panic(fmt.Errorf("uimplemented store type: %v", s.getType()))
+	case 1:
+		ts = "i32"
+		size = "8"
+	case 2:
+		ts = "i32"
+		size = "16"
+	case 4:
+		ts = "i32"
+	}
+	writer.PrintfIndent(s.getIndent(), "(%s.store%s%s\n", ts, size, s.getComment())
 	s.addr.print(writer)
 	s.val.print(writer)
 	writer.PrintfIndent(s.getIndent(), ") ;; store%s\n", s.getComment())
