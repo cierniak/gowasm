@@ -733,12 +733,30 @@ func (l *WasmLoad) getType() WasmType {
 
 func (l *WasmLoad) print(writer FormattingWriter) {
 	var ts string
-	if l.getType().getSize() == 4 {
-		ts = "i32"
-	} else {
-		panic(fmt.Errorf("uimplemented load type: %v", l.getType()))
+	var size string
+	if l.getType().isFloat() {
+		panic(fmt.Errorf("uimplemented float load: %v", l.getType()))
 	}
-	writer.PrintfIndent(l.getIndent(), "(%s.load%s\n", ts, l.getComment())
+	switch l.getType().getSize() {
+	default:
+		panic(fmt.Errorf("uimplemented load type: %v", l.getType()))
+	case 1:
+		ts = "i32"
+		size = "8"
+	case 2:
+		ts = "i32"
+		size = "16"
+	case 4:
+		ts = "i32"
+	}
+	if size != "" {
+		if l.getType().isSigned() {
+			size += "_s"
+		} else {
+			size += "_u"
+		}
+	}
+	writer.PrintfIndent(l.getIndent(), "(%s.load%s%s\n", ts, size, l.getComment())
 	l.addr.print(writer)
 	writer.PrintfIndent(l.getIndent(), ") ;; load%s\n", l.getComment())
 }
