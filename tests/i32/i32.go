@@ -117,3 +117,16 @@ func TestCallIndirect2() int {
 	r = r + testIntFunc2(max, 2, 4)
 	return r
 }
+
+//wasm:assert_return (invoke "TestInt8" (i32.const 12) (i32.const 8) (i32.const 0)) (i32.const 20)
+//wasm:assert_return (invoke "TestInt8" (i32.const 120) (i32.const 4) (i32.const 4)) (i32.const 128)
+func TestInt8(a, b, c int8) uint8 {
+	// TODO: truncate and sign-extend 8-bit ints
+	return uint8(a + b + c)
+}
+
+//wasm:assert_return (invoke "TestInt16" (i32.const 12) (i32.const 8) (i32.const 0)) (i32.const 20)
+func TestInt16(a, b, c int16) uint16 {
+	// TODO: truncate and sign-extend 16-bit ints
+	return uint16(a + b + c)
+}

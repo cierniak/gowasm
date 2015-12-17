@@ -173,6 +173,26 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 	switch name {
 	default:
 		return nil, fmt.Errorf("unimplemented scalar type: '%s'", name)
+	case "int8":
+		t.setName("i32")
+		t.setSize(1)
+		t.setAlign(1)
+		t.signed = true
+	case "uint8":
+		t.setName("i32")
+		t.setSize(1)
+		t.setAlign(1)
+		t.signed = false
+	case "int16":
+		t.setName("i32")
+		t.setSize(2)
+		t.setAlign(2)
+		t.signed = true
+	case "uint16":
+		t.setName("i32")
+		t.setSize(2)
+		t.setAlign(2)
+		t.signed = false
 	case "int32":
 		t.setName("i32")
 		t.setSize(4)
