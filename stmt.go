@@ -148,28 +148,28 @@ func (s *WasmScope) parseAssignLHS(lhs []ast.Expr, ty WasmType, indent int) (Was
 	if len(lhs) != 1 {
 		return nil, nil, fmt.Errorf("unimplemented multi-value LHS in AssignStmt")
 	}
+	var lvalue *LValue
+	var err error
 	switch lhs := lhs[0].(type) {
 	default:
 		return nil, nil, fmt.Errorf("unimplemented LHS in assignment: %v at %s", lhs, positionString(lhs.Pos(), s.f.fset))
-	case *ast.IndexExpr:
-		lvalue, err := s.parseIndexExprLValue(lhs, nil, indent)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error in address computation for IndexExpr %v: %v", lhs, err)
-		}
-		return nil, lvalue, nil
-	case *ast.SelectorExpr:
-		lvalue, err := s.parseSelectorExprLValue(lhs, nil, indent)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error in address computation for SelectorExpr %v: %v", lhs, err)
-		}
-		return nil, lvalue, nil
 	case *ast.Ident:
 		v, ok := s.f.module.variables[lhs.Obj]
 		if !ok {
 			return nil, nil, fmt.Errorf("couldn't find variable '%s' on the LHS of an assignment", lhs.Name)
 		}
 		return v, nil, nil
+	case *ast.IndexExpr:
+		lvalue, err = s.parseIndexExprLValue(lhs, nil, indent)
+	case *ast.SelectorExpr:
+		lvalue, err = s.parseSelectorExprLValue(lhs, nil, indent)
+	case *ast.StarExpr:
+		lvalue, err = s.parseStarExprLValue(lhs, nil, indent)
 	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("error in LValue computation for LHS %v: %v", lhs[0], err)
+	}
+	return nil, lvalue, nil
 }
 
 func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, stmt *ast.AssignStmt, indent int) (WasmExpression, error) {

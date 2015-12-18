@@ -588,8 +588,12 @@ func (s *WasmScope) parseExprLValue(expr ast.Expr, typeHint WasmType, indent int
 	}
 }
 
+func (s *WasmScope) parseStarExprLValue(expr *ast.StarExpr, typeHint WasmType, indent int) (*LValue, error) {
+	return s.parseExprLValue(expr.X, typeHint, indent+1)
+}
+
 func (s *WasmScope) parseStarExpr(expr *ast.StarExpr, typeHint WasmType, indent int) (WasmExpression, error) {
-	lvalue, err := s.parseExprLValue(expr.X, typeHint, indent+1)
+	lvalue, err := s.parseStarExprLValue(expr, typeHint, indent)
 	if err != nil {
 		return nil, err
 	}

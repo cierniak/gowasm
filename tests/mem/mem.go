@@ -91,3 +91,10 @@ func TestArray2() int32 {
 	a := [...]int32{13, 15}
 	return a[1]
 }
+
+//wasm:assert_return (invoke "TestArray3" (i32.const 13) (i32.const 15)) (i32.const 15)
+func TestArray3(m, n int8) int8 {
+	a := [...]int8{m, n}
+	a[0] = int8(11)
+	return a[1]
+}
