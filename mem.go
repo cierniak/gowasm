@@ -5,32 +5,36 @@ import (
 )
 
 type WasmMemory struct {
-	size          int
-	globalVarAddr int
-	content       []byte
+	size           int
+	nextStaticAddr int
+	content        []byte
 }
 
 func createMemory(size int) *WasmMemory {
 	memory := &WasmMemory{
-		size:          size,
-		globalVarAddr: 4,
-		content:       make([]byte, 0, size),
+		size:           size,
+		nextStaticAddr: 4,
+		content:        make([]byte, 0, size),
 	}
 	return memory
 }
 
-func (memory *WasmMemory) addGlobal(addr, size int) {
-	limit := addr + size
-	if limit > cap(memory.content) {
-		panic(fmt.Sprintf("Address %d is too large", addr))
+func (memory *WasmMemory) allocGlobal(size, align int) int {
+	addr := memory.nextStaticAddr + (align - 1)
+	mask := ^(align - 1)
+	addr = addr & mask
+	nextAddr := addr + size
+	if nextAddr > cap(memory.content) {
+		panic(fmt.Sprintf("Out of static memory: %d", nextAddr))
 	}
-	if limit > len(memory.content) {
-		memory.content = memory.content[:limit]
+	if nextAddr > len(memory.content) {
+		memory.content = memory.content[:nextAddr]
 	}
+	memory.nextStaticAddr = nextAddr
+	return addr
 }
 
 func (memory *WasmMemory) writeInt32(addr int, val int32) {
-	memory.addGlobal(addr, 4)
 	for i := 0; i < 4; i++ {
 		b := val & 0xff
 		memory.content[addr+i] = byte(b)
@@ -43,12 +47,12 @@ func (memory *WasmMemory) print(writer FormattingWriter) {
 	writer.Printf("\n")
 	writer.PrintfIndent(indent, "(memory %d\n", memory.size)
 
-	// Globals segment
+	// Static memory segment
 	writer.PrintfIndent(indent+1, "(segment 0 \"")
 	for _, b := range memory.content {
 		writer.Printf("\\%02x", b)
 	}
-	writer.Printf("\") ;; global variables\n")
+	writer.Printf("\") ;; static memory\n")
 
 	// Heap segment
 	writer.PrintfIndent(indent+1, "(segment %d \"", len(memory.content))
