@@ -1,27 +1,15 @@
 package newstuff
 
 //import "gowasm/rt/wasm"
+import "gowasm/rt/gc"
 import "unsafe"
 
-/*
-//wasm:invoke (invoke "Peek8" (i32.const 4))
-func Peek8(addr uintptr) int8 {
-	u1 := unsafe.Pointer(addr)
-	p := (*int8)(u1)
-	i8 := *p
-	return i8
+//wasm:assert_return (invoke "TestArray4") (i32.const 15)
+func TestArray4() int8 {
+	a := [...]int8{13, 15, 17}
+	b := [...]int8{3, 5, 7}
+	a1 := unsafe.Pointer(&a)
+	b1 := unsafe.Pointer(&b)
+	gc.Memcpy(uintptr(b1), uintptr(a1), 3)
+	return b[1]
 }
-*/
-func Poke8(addr uintptr, val int8) {
-	u1 := unsafe.Pointer(addr)
-	p := (*int8)(u1)
-	*p = val
-}
-
-/*
-//wasm:invoke (invoke "Memcpy" (i32.const 0) (i32.const 4) (i32.const 2))
-func Memcpy(dst, src uintptr, n int) {
-	for i := 0; i < n; i = i + 1 {
-	}
-}
-*/

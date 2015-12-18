@@ -651,6 +651,12 @@ func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, e
 		return nil, fmt.Errorf("unsupported address-of operand: %v", expr)
 	case *ast.CompositeLit:
 		return s.parseStructAlloc(expr, indent)
+	case *ast.Ident:
+		lvalue, err := s.parseExprLValue(expr, nil, indent)
+		if err != nil {
+			return nil, fmt.Errorf("error in address computation for Ident %v: %v", expr.Name, err)
+		}
+		return lvalue.addr, nil
 	case *ast.SelectorExpr:
 		lvalue, err := s.parseSelectorExprLValue(expr, nil, indent)
 		if err != nil {

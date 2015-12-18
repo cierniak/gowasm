@@ -98,3 +98,13 @@ func TestArray3(m, n int8) int8 {
 	a[0] = int8(11)
 	return a[1]
 }
+
+//wasm:assert_return (invoke "TestArray4") (i32.const 15)
+func TestArray4() int8 {
+	a := [...]int8{13, 15, 17}
+	b := [...]int8{3, 5, 7}
+	a1 := unsafe.Pointer(&a)
+	b1 := unsafe.Pointer(&b)
+	gc.Memcpy(uintptr(b1), uintptr(a1), 3)
+	return b[1]
+}

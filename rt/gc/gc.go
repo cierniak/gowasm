@@ -18,3 +18,22 @@ func Align(addr, alignment int32) int32 {
 	addr = addr & mask
 	return addr
 }
+
+func Peek8(addr uintptr) int8 {
+	u1 := unsafe.Pointer(addr)
+	p := (*int8)(u1)
+	i8 := *p
+	return i8
+}
+
+func Poke8(addr uintptr, val int8) {
+	u1 := unsafe.Pointer(addr)
+	p := (*int8)(u1)
+	*p = val
+}
+
+func Memcpy(dst, src uintptr, n int) {
+	for i := uintptr(0); i < uintptr(n); i = i + 1 {
+		Poke8(uintptr(dst)+i, Peek8(uintptr(src)+i))
+	}
+}
