@@ -234,5 +234,9 @@ func (c *WasmCallIndirect) print(writer FormattingWriter) {
 }
 
 func (c *WasmCall) getNode() ast.Node {
-	return c.call
+	if c.call != nil {
+		return c.call
+	} else {
+		return c.astNode
+	}
 }

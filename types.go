@@ -251,7 +251,6 @@ func (file *WasmGoSourceFile) evaluateIntConstantBasicLit(expr *ast.BasicLit) (i
 }
 
 func (file *WasmGoSourceFile) evaluateIntConstant(expr ast.Expr) (int, error) {
-	fmt.Printf("evaluateIntConstant, expr: %v\n", expr)
 	switch expr := expr.(type) {
 	default:
 		return 0, fmt.Errorf("unsupported constant expression: %v", expr)

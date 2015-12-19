@@ -42,6 +42,12 @@ func (memory *WasmMemory) writeInt32(addr int, val int32) {
 	}
 }
 
+func (memory *WasmMemory) writeBytes(addr int, bytes []byte) {
+	for i, b := range bytes {
+		memory.content[addr+i] = b
+	}
+}
+
 func (memory *WasmMemory) print(writer FormattingWriter) {
 	indent := 1
 	writer.Printf("\n")

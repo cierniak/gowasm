@@ -176,8 +176,48 @@ func (s *WasmScope) parseAssignToLvalue(lvalue *LValue, rhs WasmExpression, stmt
 	return s.createStore(lvalue.addr, rhs, rhs.getType(), stmt, indent)
 }
 
+func (s *WasmScope) initFromStaticMemory(bytes []byte, dst WasmExpression, align int, node ast.Node, indent int) (WasmExpression, error) {
+	staticMemAddr := s.f.file.module.memory.allocGlobal(len(bytes), align)
+	s.f.file.module.memory.writeBytes(staticMemAddr, bytes)
+	src, err := s.createLiteralInt32(int32(staticMemAddr), indent+1)
+	if err != nil {
+		return nil, err
+	}
+	src.setComment("array initialization data in static memory")
+	n, err := s.createLiteralInt32(int32(len(bytes)), indent+1)
+	if err != nil {
+		return nil, err
+	}
+	n.setComment("array size in bytes")
+	return s.generateMemcpy(dst, src, n, node, indent)
+}
+
 func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs ast.Expr, stmt *ast.AssignStmt, indent int) ([]WasmExpression, error) {
 	exprList := []WasmExpression{expr}
+	staticMemInitPossible := true
+	var arrayElementSize int
+	var arrayAlign int
+	bytes := []byte{}
+	if v != nil {
+		if v.getFullType() != nil {
+			switch ty := v.getFullType().(type) {
+			default:
+				staticMemInitPossible = false
+			case *WasmTypeArray:
+				arrayAlign = ty.getAlign()
+				switch elemType := ty.elementType.(type) {
+				default:
+					staticMemInitPossible = false
+				case *WasmTypeScalar:
+					arrayElementSize = elemType.getSize()
+				}
+			}
+		} else {
+			staticMemInitPossible = false
+		}
+	} else {
+		staticMemInitPossible = false
+	}
 	switch rhs := rhs.(type) {
 	default:
 	case *ast.CompositeLit:
@@ -185,6 +225,20 @@ func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs 
 			val, err := s.parseExpr(astExpr, nil, indent+1)
 			if err != nil {
 				return nil, err
+			}
+			if staticMemInitPossible {
+				v, err := s.f.file.evaluateIntConstant(astExpr)
+				if err != nil {
+					// Not a compile-time, constant
+					staticMemInitPossible = false
+				} else {
+					for j := 0; j < arrayElementSize; j++ {
+						b := byte(v & 0xff)
+						bytes = append(bytes, b)
+						v = v >> 8
+					}
+
+				}
 			}
 			x := s.createGetLocal(v, rhs, indent+2)
 			index, err := s.createLiteralInt32(int32(i), indent+3)
@@ -203,6 +257,14 @@ func (s *WasmScope) initValuesIfNeeded(v WasmVariable, expr WasmExpression, rhs 
 			initExpr.setComment(fmt.Sprintf("initialize array element #%d", i))
 			exprList = append(exprList, initExpr)
 		}
+	}
+	if staticMemInitPossible {
+		dst := s.createGetLocal(v, rhs, indent+1)
+		staticInit, err := s.initFromStaticMemory(bytes, dst, arrayAlign, stmt, indent)
+		if err != nil {
+			return nil, err
+		}
+		exprList = []WasmExpression{expr, staticInit}
 	}
 	return exprList, nil
 }

@@ -631,6 +631,21 @@ func (s *WasmScope) generateAlloc(sizeConst, alignConst int32, expr ast.Node, pt
 	return callExpr, err
 }
 
+func (s *WasmScope) generateMemcpy(dst, src, n WasmExpression, node ast.Node, indent int) (WasmExpression, error) {
+	args := []WasmExpression{dst, src, n}
+	memcpyFnName := mangleFunctionName("gowasm/rt/gc", "Memcpy")
+	fn, ok := s.f.module.funcSymTab[memcpyFnName]
+	if !ok {
+		return nil, fmt.Errorf("link error, couldn't find memcpy function: %s", memcpyFnName)
+	}
+	callExpr, err := s.createCallExprWithArgs(nil, memcpyFnName, fn, args, indent)
+	if callExpr != nil {
+		callExpr.setNode(node)
+		callExpr.setScope(s)
+	}
+	return callExpr, err
+}
+
 func (s *WasmScope) parseStructAlloc(expr *ast.CompositeLit, indent int) (WasmExpression, error) {
 	t, err := s.f.file.parseAstType(expr.Type)
 	if err != nil {
