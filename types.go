@@ -178,6 +178,8 @@ func (m *WasmModule) convertAstTypeNameToWasmType(name string) (*WasmTypeScalar,
 		t.setSize(1)
 		t.setAlign(1)
 		t.signed = true
+	case "byte":
+		fallthrough
 	case "uint8":
 		t.setName("i32")
 		t.setSize(1)

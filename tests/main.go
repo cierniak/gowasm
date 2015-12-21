@@ -48,7 +48,7 @@ func main() {
 	fmt.Printf("-- Asserting return... gc.Alloc(128, 64) --> %d\n", v32)
 	v32 = gc.Alloc(64, 32)
 	fmt.Printf("-- Asserting return... gc.Alloc(64, 32) --> %d\n", v32)
-	v8 := newstuff.TestArray4()
-	fmt.Printf("-- Invoking... newstuff.TestArray4() --> %d\n", v8)
+	v8 := newstuff.TestArray5()
+	fmt.Printf("-- Invoking... newstuff.TestArray5() --> %d\n", v8)
 	fmt.Printf("Tests complete\n")
 }

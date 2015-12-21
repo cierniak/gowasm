@@ -1,5 +1,7 @@
 package gc
 
+import "unsafe"
+
 var freePointer int32
 
 func Alloc(size, align int32) int32 {
