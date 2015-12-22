@@ -58,6 +58,8 @@ func (memory *WasmMemory) print(writer FormattingWriter) {
 	for _, b := range memory.content {
 		switch {
 		default:
+			fallthrough
+		case b == '"' || b == '\\':
 			writer.Printf("\\%02x", b)
 		case ' ' <= b && b <= '}':
 			writer.Printf("%c", b)

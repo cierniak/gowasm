@@ -108,3 +108,9 @@ func TestArray4() int8 {
 	gc.Memcpy(uintptr(b1), uintptr(a1), 3)
 	return b[1]
 }
+
+//wasm:assert_return (invoke "TestArray5") (i32.const 101)
+func TestArray5() byte {
+	a := [...]byte{'h', 'e', 'l', 'l', 'o', 0}
+	return a[1]
+}
