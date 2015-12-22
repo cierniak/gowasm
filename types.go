@@ -243,7 +243,6 @@ func (file *WasmGoSourceFile) convertAstTypeToWasmType(astType *ast.Ident) (*Was
 }
 
 func (file *WasmGoSourceFile) evaluateIntConstantBasicLit(expr *ast.BasicLit) (int, error) {
-	fmt.Printf("evaluateIntConstantBasicLit: %v\n", expr)
 	switch expr.Kind {
 	default:
 		return 0, fmt.Errorf("int constant expression with literal of kind: %v", expr.Kind)

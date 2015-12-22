@@ -597,7 +597,7 @@ func (s *WasmScope) parseExprLValue(expr ast.Expr, typeHint WasmType, indent int
 			}
 			return lvalue, nil
 		}
-		return nil, s.f.file.ErrorNode(expr, "unimplemented L-Value Ident expression")
+		return nil, s.f.file.ErrorNode(expr, "unimplemented L-Value Ident expression: %v", ty.getName())
 	}
 }
 
@@ -687,11 +687,12 @@ func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, e
 		return lvalue.addr, nil
 	case *ast.IndexExpr:
 		lvalue, err := s.parseIndexExprLValue(expr, nil, indent)
-		fmt.Printf("parseAddressOf, lvalue: %v\n", lvalue)
-		fmt.Printf("parseAddressOf, err: %v\n", err)
 		if err != nil {
 			return nil, fmt.Errorf("error in address computation for IndexExpr %v: %v", expr, err)
 		}
+		ty, _ := s.f.file.createPointerType(lvalue.t)
+		lvalue.addr.setType(lvalue.t)
+		lvalue.addr.setFullType(ty)
 		return lvalue.addr, nil
 	case *ast.SelectorExpr:
 		lvalue, err := s.parseSelectorExprLValue(expr, nil, indent)
