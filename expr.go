@@ -685,6 +685,14 @@ func (s *WasmScope) parseAddressOf(expr ast.Expr, indent int) (WasmExpression, e
 			return nil, fmt.Errorf("error in address computation for Ident %v: %v", expr.Name, err)
 		}
 		return lvalue.addr, nil
+	case *ast.IndexExpr:
+		lvalue, err := s.parseIndexExprLValue(expr, nil, indent)
+		fmt.Printf("parseAddressOf, lvalue: %v\n", lvalue)
+		fmt.Printf("parseAddressOf, err: %v\n", err)
+		if err != nil {
+			return nil, fmt.Errorf("error in address computation for IndexExpr %v: %v", expr, err)
+		}
+		return lvalue.addr, nil
 	case *ast.SelectorExpr:
 		lvalue, err := s.parseSelectorExprLValue(expr, nil, indent)
 		if err != nil {
