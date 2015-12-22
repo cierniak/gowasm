@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"strconv"
+	"strings"
 )
 
 type BinOp int
@@ -276,6 +278,11 @@ func (s *WasmScope) createLiteral(value string, ty WasmType, indent int) (WasmEx
 	if ty == nil {
 		return nil, fmt.Errorf("not implemented: literal without type: %v", value)
 	}
+	if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") && len(value) == 3 {
+		// Special-case characters. Note that this doesn't work for runes which are not ASCII.
+		i := int(strings.Trim(value, "'")[0])
+		value = strconv.Itoa(i)
+	}
 	val := &WasmValue{
 		value: value,
 	}
@@ -289,6 +296,12 @@ func (s *WasmScope) parseBasicLit(lit *ast.BasicLit, typeHint WasmType, indent i
 		switch lit.Kind {
 		default:
 			return nil, s.f.file.ErrorNode(lit, "not implemented: BasicLit without type hint: %v", lit.Value)
+		case token.CHAR:
+			t, err := s.f.file.module.convertAstTypeNameToWasmType("byte")
+			if err != nil {
+				return nil, err
+			}
+			return s.parseBasicLit(lit, t, indent)
 		case token.INT:
 			t, err := s.f.file.module.convertAstTypeNameToWasmType("int")
 			if err != nil {

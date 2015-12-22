@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"strconv"
+	"strings"
 )
 
 type WasmType interface {
@@ -242,14 +243,25 @@ func (file *WasmGoSourceFile) convertAstTypeToWasmType(astType *ast.Ident) (*Was
 }
 
 func (file *WasmGoSourceFile) evaluateIntConstantBasicLit(expr *ast.BasicLit) (int, error) {
-	if expr.Kind != token.INT {
+	fmt.Printf("evaluateIntConstantBasicLit: %v\n", expr)
+	switch expr.Kind {
+	default:
 		return 0, fmt.Errorf("int constant expression with literal of kind: %v", expr.Kind)
+	case token.CHAR:
+		value := expr.Value
+		if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") && len(value) == 3 {
+			// Special-case characters. Note that this doesn't work for runes which are not ASCII.
+			i := int(strings.Trim(value, "'")[0])
+			return i, nil
+		}
+		return 0, fmt.Errorf("can't interpret a char constant expression as an int: %v", value)
+	case token.INT:
+		i, err := strconv.Atoi(expr.Value)
+		if err != nil {
+			return 0, fmt.Errorf("error parsing an integer constant:'%s' %v", expr.Value, err)
+		}
+		return i, nil
 	}
-	i, err := strconv.Atoi(expr.Value)
-	if err != nil {
-		return 0, fmt.Errorf("error parsing an integer constant:'%s' %v", expr.Value, err)
-	}
-	return i, nil
 }
 
 func (file *WasmGoSourceFile) evaluateIntConstant(expr ast.Expr) (int, error) {

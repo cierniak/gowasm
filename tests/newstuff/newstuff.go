@@ -4,8 +4,8 @@ package newstuff
 //import "gowasm/rt/gc"
 //import "unsafe"
 
-//wasm:assert_return (invoke "TestArray5") (i32.const 15)
+//wasm:assert_return (invoke "TestArray5") (i32.const 101)
 func TestArray5() byte {
-	a := [...]byte{13, 15, 17}
+	a := [...]byte{'h', 'e', 'l', 'l', 'o', 0}
 	return a[1]
 }
