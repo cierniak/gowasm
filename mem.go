@@ -56,7 +56,12 @@ func (memory *WasmMemory) print(writer FormattingWriter) {
 	// Static memory segment
 	writer.PrintfIndent(indent+1, "(segment 0 \"")
 	for _, b := range memory.content {
-		writer.Printf("\\%02x", b)
+		switch {
+		default:
+			writer.Printf("\\%02x", b)
+		case ' ' <= b && b <= '}':
+			writer.Printf("%c", b)
+		}
 	}
 	writer.Printf("\") ;; static memory\n")
 
