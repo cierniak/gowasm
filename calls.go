@@ -163,8 +163,8 @@ func (s *WasmScope) parseCallExprSelector(call *ast.CallExpr, se *ast.SelectorEx
 		switch pkgShort {
 		case "unsafe":
 			return s.parseUnsafePkgCall(se.Sel, call, indent)
-		case "wasm":
-			return s.parseWASMRuntimeCall(se.Sel, call, indent)
+		case "v8", "wasm":
+			return s.parseWASMRuntimeCall(pkgShort, se.Sel, call, indent)
 		}
 		pkgLong, ok := s.f.file.imports[pkgShort]
 		if ok {

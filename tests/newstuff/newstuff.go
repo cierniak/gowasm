@@ -1,6 +1,6 @@
 package newstuff
 
-import "gowasm/rt/wasm"
+import "gowasm/rt/v8"
 
 //import "gowasm/rt/gc"
 //import "unsafe"
@@ -13,6 +13,6 @@ import "gowasm/rt/wasm"
 func TestPuts() int {
 	a := [...]byte{'h', 'e', 'l', 'l', 'o', 0}
 	p := &a[0]
-	wasm.Puts(p)
+	v8.Puts(p)
 	return 0
 }

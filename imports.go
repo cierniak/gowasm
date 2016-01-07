@@ -31,9 +31,9 @@ type ImportName struct {
 }
 
 var functionNames map[string]ImportName = map[string]ImportName{
-	"Print_int32": {"spectest", "print", "int32->"},
-	"Print_int64": {"spectest", "print", "int64->"},
-	"Puts":        {"", "puts", "int32->int32"},
+	"wasm.Print_int32": {"spectest", "print", "int32->"},
+	"wasm.Print_int64": {"spectest", "print", "int64->"},
+	"v8.Puts":          {"", "puts", "int32->int32"},
 }
 
 func (i *WasmImport) print(writer FormattingWriter) {
@@ -42,40 +42,56 @@ func (i *WasmImport) print(writer FormattingWriter) {
 		writer.Printf(" ")
 		p.print(writer)
 	}
-	writer.Printf("))\n")
+	writer.Printf(")")
+	if i.result != nil {
+		writer.Printf(" (result ")
+		i.result.print(writer)
+		writer.Printf(")")
+	}
+	writer.Printf(")\n")
 }
 
-func (s *WasmScope) parseWASMRuntimeSignature(sig string) ([]WasmType, error) {
+func (s *WasmScope) parseWASMRuntimeSignature(sig string) ([]WasmType, WasmType, error) {
 	partsTopLevel := strings.Split(sig, "->")
 	if len(partsTopLevel) != 2 {
-		return nil, fmt.Errorf("error separating param and return types in an import: %s", sig)
+		return nil, nil, fmt.Errorf("error separating param and return types in an import: %s", sig)
 	}
 	params := partsTopLevel[0]
-	//ret := partsTopLevel[1]
 	result := make([]WasmType, 0, 10)
-	parts := strings.Split(params, "_")
+	parts := strings.Split(params, ",")
 	for _, typeName := range parts {
 		t, ok := s.f.module.types[typeName]
 		if !ok {
 			// TODO(cierniak): Implement this case.
-			return nil, fmt.Errorf("type %s hasn't been used yet", typeName)
+			return nil, nil, fmt.Errorf("param type %s hasn't been used yet", typeName)
 		}
 		result = append(result, t)
 	}
-	return result, nil
+
+	ret := partsTopLevel[1]
+	var retType WasmType
+	if ret != "" {
+		var ok bool
+		retType, ok = s.f.module.types[ret]
+		if !ok {
+			// TODO(cierniak): Implement this case.
+			return nil, nil, fmt.Errorf("return type %s hasn't been used yet", ret)
+		}
+	}
+
+	return result, retType, nil
 }
 
-func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
+func (s *WasmScope) parseWASMRuntimeCall(pkg string, ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
 	name := ident.Name
-	namesWASM, ok := functionNames[name]
+	namesWASM, ok := functionNames[pkg+"."+name]
 	if !ok {
 		return nil, fmt.Errorf("couldn't find name mapping for import %s", name)
 	}
-	params, err := s.parseWASMRuntimeSignature(namesWASM.signature)
+	params, result, err := s.parseWASMRuntimeSignature(namesWASM.signature)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("parseWASMRuntimeCall, name: %s, param: %v\n", name, params)
 	i, ok := s.f.module.imports[name]
 	if !ok {
 		i = &WasmImport{
@@ -83,6 +99,7 @@ func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, i
 			moduleName: namesWASM.module,
 			funcName:   namesWASM.function,
 			params:     params,
+			result:     result,
 			indent:     s.f.module.indent + 1,
 		}
 		s.f.module.imports[name] = i
@@ -100,9 +117,8 @@ func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, i
 	return c, nil
 }
 
-func (p *WasmCallImport) getType() WasmType {
-	// TODO
-	return nil
+func (c *WasmCallImport) getType() WasmType {
+	return c.i.result
 }
 
 func (c *WasmCallImport) print(writer FormattingWriter) {
