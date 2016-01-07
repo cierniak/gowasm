@@ -24,6 +24,18 @@ type WasmCallImport struct {
 	call *ast.CallExpr
 }
 
+type ImportName struct {
+	module    string
+	function  string
+	signature string
+}
+
+var functionNames map[string]ImportName = map[string]ImportName{
+	"Print_int32": {"spectest", "print", "int32->"},
+	"Print_int64": {"spectest", "print", "int64->"},
+	"Puts":        {"", "puts", "int32->int32"},
+}
+
 func (i *WasmImport) print(writer FormattingWriter) {
 	writer.PrintfIndent(i.indent, "(import %s \"%s\" \"%s\" (param", i.name, i.moduleName, i.funcName)
 	for _, p := range i.params {
@@ -33,10 +45,16 @@ func (i *WasmImport) print(writer FormattingWriter) {
 	writer.Printf("))\n")
 }
 
-func (s *WasmScope) parseWASMRuntimeSignature(name string) ([]WasmType, error) {
+func (s *WasmScope) parseWASMRuntimeSignature(sig string) ([]WasmType, error) {
+	partsTopLevel := strings.Split(sig, "->")
+	if len(partsTopLevel) != 2 {
+		return nil, fmt.Errorf("error separating param and return types in an import: %s", sig)
+	}
+	params := partsTopLevel[0]
+	//ret := partsTopLevel[1]
 	result := make([]WasmType, 0, 10)
-	parts := strings.Split(name, "_")
-	for _, typeName := range parts[1:] {
+	parts := strings.Split(params, "_")
+	for _, typeName := range parts {
 		t, ok := s.f.module.types[typeName]
 		if !ok {
 			// TODO(cierniak): Implement this case.
@@ -49,16 +67,21 @@ func (s *WasmScope) parseWASMRuntimeSignature(name string) ([]WasmType, error) {
 
 func (s *WasmScope) parseWASMRuntimeCall(ident *ast.Ident, call *ast.CallExpr, indent int) (WasmExpression, error) {
 	name := ident.Name
-	params, err := s.parseWASMRuntimeSignature(name)
+	namesWASM, ok := functionNames[name]
+	if !ok {
+		return nil, fmt.Errorf("couldn't find name mapping for import %s", name)
+	}
+	params, err := s.parseWASMRuntimeSignature(namesWASM.signature)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("parseWASMRuntimeCall, name: %s, param: %v\n", name, params)
 	i, ok := s.f.module.imports[name]
 	if !ok {
 		i = &WasmImport{
 			name:       astNameToWASM(name, nil),
-			moduleName: "spectest", // TODO(cierniak): support other WASM modules
-			funcName:   "print",    // TODO(cierniak): support other functions
+			moduleName: namesWASM.module,
+			funcName:   namesWASM.function,
 			params:     params,
 			indent:     s.f.module.indent + 1,
 		}
