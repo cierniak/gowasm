@@ -246,7 +246,7 @@ func isSymbolPublic(name string) bool {
 
 func (m *WasmModule) printExports(writer FormattingWriter, indent int) {
 	for _, f := range m.functions {
-		if isSymbolPublic(f.origName) {
+		if isSymbolPublic(f.origName) || f.origName == "main" {
 			writer.PrintfIndent(indent, "(export \"%s\" %s)\n", f.origName, f.name)
 		}
 	}
